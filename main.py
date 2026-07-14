@@ -33,7 +33,7 @@ def login(kullanici: dict):
     if kullanici["mail"] == sistem_mail and kullanici["sifre"] == os.getenv("KULLANICI_1_SIFRE"):
         return {"durum": "basarili"}
     
-    app.mount("/", StaticFiles(directory=".", html=True), name="static")
+    app.mount("/static", StaticFiles(directory="."), name="static")
     
     raise HTTPException(status_code=401, detail="Hatalı giriş!")
 
