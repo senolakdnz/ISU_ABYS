@@ -4,10 +4,13 @@ from pydantic import BaseModel
 from typing import List, Optional
 from datetime import date
 import psycopg2
-from fastapi import FastAPI, HTTPException
+from fastapi import HTTPException
 import json
+from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(title="Abone Yönetim Sistemi API")
+
+app.mount("/", StaticFiles(directory=".", html=True), name="static")
 
 app.add_middleware(
     CORSMiddleware,
