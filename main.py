@@ -1,13 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Optional
 from datetime import date
 import psycopg2
 from fastapi import HTTPException
-import json
 from fastapi.staticfiles import StaticFiles
 import os
+from fastapi.responses import FileResponse
 
 app = FastAPI(title="Abone Yönetim Sistemi API")
 
@@ -26,16 +25,17 @@ def get_db_connection():
 
 @app.post("/login")
 def login(kullanici: dict):
-    # Sunucu tarafında okunan değerleri loglara yazdıralım
-    sistem_mail = os.getenv("KULLANICI_1_MAIL")
-    print(f"DEBUG - Gelen Mail: {kullanici['mail']}, Sistemdeki Mail: {sistem_mail}")
-    
-    if kullanici["mail"] == sistem_mail and kullanici["sifre"] == os.getenv("KULLANICI_1_SIFRE"):
+    # Buradaki kontrol mantığın kalsın
+    if kullanici["mail"] == os.getenv("KULLANICI_1_MAIL") and kullanici["sifre"] == os.getenv("KULLANICI_1_SIFRE"):
         return {"durum": "basarili"}
-    
-    app.mount("/static", StaticFiles(directory="."), name="static")
-    
-    raise HTTPException(status_code=401, detail="Hatalı giriş!")
+    return {"durum": "hata"}
+
+@app.get("/")
+def read_index():
+    return FileResponse("login.html")
+
+# 3. Statik dosyaları bağla (CSS, JS, diğer HTML'ler için)
+app.mount("/static", StaticFiles(directory="."), name="static")
 
 class TarifeModel(BaseModel):
     TarifeAd: str
