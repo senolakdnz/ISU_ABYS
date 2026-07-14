@@ -21,20 +21,24 @@
 
 <script>
     async function girisYap() {
-        const data = { mail: document.getElementById('mail').value, sifre: document.getElementById('sifre').value };
-        const res = await fetch('https://isu-abys.onrender.com', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(data)
-        });
+    const data = { 
+        mail: document.getElementById('mail').value, 
+        sifre: document.getElementById('sifre').value 
+    };
 
-        if (res.ok) {
-            localStorage.setItem("giris", "true"); // Giriş durumunu hafızaya al
-            window.location.href = "index.html";
-        } else {
-            alert("Hatalı mail veya şifre!");
-        }
+    const res = await fetch('https://isu-abys.onrender.com/login', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    });
+
+    if (res.ok) {
+        localStorage.setItem("giris", "true");
+        window.location.href = "index.html";
+    } else {
+        alert("Hatalı mail veya şifre!");
     }
+}
 </script>
 </body>
 </html>
