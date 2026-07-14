@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<script>
+    // Eğer kullanıcı giriş yapmadıysa direkt giriş sayfasına gönder
+    if (localStorage.getItem("giris") !== "true") {
+        window.location.href = "login.html";
+    }
+</script>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Sayaç Yönetimi</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f4f7f6; padding: 20px; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h2 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+        .form-group { display: flex; gap: 10px; margin-bottom: 20px; }
+        input[type="text"], select { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; }
+        button { padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; color: white; font-weight: bold; }
+        .btn-ekle { background-color: #28a745; }
+        .btn-iptal { background-color: #6c757d; display: none; }
+        .btn-duzenle { background-color: #ffc107; color: black; padding: 5px 10px; margin-right: 5px; }
+        .btn-sil { background-color: #dc3545; padding: 5px 10px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #007bff; color: white; }
+        tr:nth-child(even) { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Sayaç Yönetimi</h2>
+    <div style="margin-bottom: 20px;">
+        <input type="text" id="aramaCubugu" onkeyup="tabloyuFiltrele()" 
+           placeholder="Tabloda arama yapın..." 
+           style="width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+    </div>
+    <div class="form-group">
+        <input type="hidden" id="sayacId">
+        <input type="text" id="sayacAd" placeholder="Sayaç Adı (Örn: Akıllı Sayaç 2026)">
+        
+        <!-- Tip Türü ID inputu yerine Açılır Liste (Combobox) ekledik -->
+        <select id="sayacTipTuru">
+            <option value="">-- Tip Türü Seçiniz --</option>
+        </select>
+        
+        <button class="btn-ekle" id="btnKaydet" onclick="sayacKaydet()">Kaydet</button>
+        <button class="btn-iptal" id="btnIptal" onclick="formuTemizle()">İptal</button>
+    </div>
+    <table>
+        <thead>
+            <!-- Başlığı "Tip Türü ID" yerine "Tip Türü" yaptık -->
+            <tr><th>ID</th><th>Sayaç Adı</th><th>Tip Türü</th><th>İşlemler</th></tr>
+        </thead>
+        <tbody id="sayacTablosu"></tbody>
+    </table>
+</div>
+
+<script>
+    const API_URL = "http://127.0.0.1:8000";
+
+    // Sayfa açıldığında hem sayaçları hem de tipleri listele
+    window.onload = function() { 
+        sayaclariGetir(); 
+        tipSecenekleriniGetir();
+    };
+
+    // YENİ FONKSİYON: TipTur tablosundan verileri çekip combobox'a doldurur
+    function tipSecenekleriniGetir() {
+        fetch(`${API_URL}/tipturler`)
+            .then(res => res.json())
+            .then(data => {
+                const secimKutusu = document.getElementById("sayacTipTuru");
+                data.forEach(tip => {
+                    // Ekranda Tip Adı görünür, arka planda (value) Tip ID tutulur
+                    secimKutusu.innerHTML += `<option value="${tip.TipID}">${tip.TipAd}</option>`;
+                });
+            });
+    }
+
+    function sayaclariGetir() {
+        fetch(`${API_URL}/sayaclar`)
+            .then(res => res.json())
+            .then(data => {
+                const tablo = document.getElementById("sayacTablosu");
+                tablo.innerHTML = "";
+                data.forEach(s => {
+                    tablo.innerHTML += `<tr>
+                        <td>${s.SayacID}</td>
+                        <td>${s.SayacAd}</td>
+                        <td>${s.TipAd}</td> <!-- Ekrana Tipin Adını Yazdırıyoruz -->
+                        <td>
+                            <button class="btn-duzenle" onclick="guncelle(${s.SayacID}, '${s.SayacAd}', ${s.SayacTipTuru})">Düzenle</button>
+                            <button class="btn-sil" onclick="sil(${s.SayacID})">Sil</button>
+                        </td></tr>`;
+                });
+            });
+    }
+
+    function sayacKaydet() {
+        const id = document.getElementById("sayacId").value;
+        const ad = document.getElementById("sayacAd").value;
+        const tip = parseInt(document.getElementById("sayacTipTuru").value);
+
+        if (!ad || isNaN(tip)) return alert("Lütfen Sayaç Adı girin ve listeden bir Tip Türü seçin!");
+
+        const methodType = id ? "PUT" : "POST";
+        const url = id ? `${API_URL}/sayaclar/${id}` : `${API_URL}/sayaclar`;
+
+        fetch(url, {
+            method: methodType,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ SayacAd: ad, SayacTipTuru: tip })
+        }).then(() => { formuTemizle(); sayaclariGetir(); });
+    }
+
+    function sil(id) {
+        if (confirm("Emin misiniz?")) {
+            fetch(`${API_URL}/sayaclar/${id}`, { method: "DELETE" }).then(() => sayaclariGetir());
+        }
+    }
+
+    function guncelle(id, ad, tip) {
+        document.getElementById("sayacId").value = id;
+        document.getElementById("sayacAd").value = ad;
+        document.getElementById("sayacTipTuru").value = tip;
+        document.getElementById("btnKaydet").innerText = "Güncelle";
+        document.getElementById("btnIptal").style.display = "inline-block";
+    }
+
+    function formuTemizle() {
+        document.getElementById("sayacId").value = "";
+        document.getElementById("sayacAd").value = "";
+        document.getElementById("sayacTipTuru").value = "";
+        document.getElementById("btnKaydet").innerText = "Kaydet";
+        document.getElementById("btnIptal").style.display = "none";
+    }
+
+    function tabloyuFiltrele() {
+    let input = document.getElementById("aramaCubugu");
+    let filter = input.value.toUpperCase();
+    let table = document.querySelector("table");
+    let tr = table.getElementsByTagName("tr");
+
+    for (let i = 1; i < tr.length; i++) { // 0. satır başlık olduğu için 1'den başlar
+        let visible = false;
+        let td = tr[i].getElementsByTagName("td");
+        for (let j = 0; j < td.length - 1; j++) { // "İşlemler" sütununu arama (son sütun)
+            if (td[j] && td[j].innerText.toUpperCase().indexOf(filter) > -1) {
+                visible = true;
+                break;
+            }
+        }
+        tr[i].style.display = visible ? "" : "none";
+    }
+}
+</script>
+</body>
+</html>

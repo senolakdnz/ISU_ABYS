@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<script>
+    // Eğer kullanıcı giriş yapmadıysa direkt giriş sayfasına gönder
+    if (localStorage.getItem("giris") !== "true") {
+        window.location.href = "login.html";
+    }
+</script>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Sözleşme Yönetimi</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f4f7f6; padding: 20px; }
+        .container { max-width: 1000px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h2 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+        .form-satir { display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap; }
+        .form-grup { flex: 1; min-width: 200px; display: flex; flex-direction: column; }
+        .form-grup label { font-size: 13px; font-weight: bold; color: #555; margin-bottom: 5px; }
+        input, select { padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        .btn-grup { display: flex; gap: 10px; margin-top: 10px; }
+        button { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; color: white; font-weight: bold; }
+        .btn-save { background-color: #28a745; }
+        .btn-del { background-color: #dc3545; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #007bff; color: white; }
+        .status-true { color: green; font-weight: bold; }
+        .status-false { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>Sözleşme Yönetimi</h2>
+    <!-- Arama Çubuğu -->
+    <div style="margin-bottom: 20px;">
+        <input type="text" id="aramaCubugu" onkeyup="tabloyuFiltrele()" 
+           placeholder="Tabloda arama yapın..." 
+           style="width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+    </div>
+    <div class="form-satir">
+        <div class="form-grup">
+            <label>Abone Numarası</label>
+            <input type="text" id="aboneNo" placeholder="Örn: ISU000000001">
+        </div>
+        <div class="form-grup">
+            <label>Tarih</label>
+            <input type="date" id="tarih">
+        </div>
+        <div class="form-grup">
+            <label>Durum</label>
+            <select id="durum"><option value="true">Aktif</option><option value="false">Pasif</option></select>
+        </div>
+        <div class="form-grup">
+            <label>Şube</label>
+            <select id="subeSec"></select>
+        </div>
+    </div>
+    <div class="btn-grup">
+        <button class="btn-save" onclick="kaydet()">Kaydet / Güncelle</button>
+    </div>
+
+    <table>
+        <thead>
+            <tr><th>Sözleşme No</th><th>Abone No</th><th>Tarih</th><th>Durum</th><th>Şube</th><th>İşlem</th></tr>
+        </thead>
+        <tbody id="tabloBody"></tbody>
+    </table>
+</div>
+
+<script>
+    const API = "http://127.0.0.1:8000";
+
+    async function yukle() {
+        // Şube listesini getir
+        const sSelect = document.getElementById('subeSec');
+        sSelect.innerHTML = '<option value="">-- Seçiniz --</option>'; 
+
+    // 2. Sonra verileri çek ve ekle
+        const sRes = await fetch(`${API}/subeler`);
+        const subeler = await sRes.json();
+
+        subeler.forEach(s => {
+        sSelect.innerHTML += `<option value="${s.SubeID}">${s.SubeAd}</option>`;
+        });
+
+        // Sözleşmeleri listele
+        const res = await fetch(`${API}/sozlesmeler`);
+        const data = await res.json();
+        const tbody = document.getElementById('tabloBody');
+        tbody.innerHTML = "";
+        data.forEach(s => {
+            tbody.innerHTML += `<tr>
+                <td>${s.SozlesmeNo}</td><td>${s.AboneNo}</td><td>${s.Tarih}</td>
+                <td class="status-${s.Durum}">${s.Durum ? '✔ Aktif' : '✘ Pasif'}</td>
+                <td>${s.SubeAd}</td>
+                <td><button class="btn-del" onclick="sil(${s.SozlesmeNo})">Sil</button></td>
+            </tr>`;
+        });
+    }
+
+    async function kaydet() {
+        const data = {
+            AboneNumarasi: document.getElementById('aboneNo').value,
+            SozlesmeTarihi: document.getElementById('tarih').value,
+            Durum: document.getElementById('durum').value === 'true',
+            SubeID: parseInt(document.getElementById('subeSec').value)
+        };
+        await fetch(`${API}/sozlesmeler`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+        yukle();
+    }
+
+    async function sil(no) {
+        if(confirm("Emin misiniz?")) {
+            await fetch(`${API}/sozlesmeler/${no}`, { method: 'DELETE' });
+            yukle();
+        }
+    }
+
+    window.onload = yukle;
+
+    function tabloyuFiltrele() {
+    let input = document.getElementById("aramaCubugu");
+    let filter = input.value.toUpperCase();
+    let table = document.querySelector("table");
+    let tr = table.getElementsByTagName("tr");
+
+    for (let i = 1; i < tr.length; i++) { // 0. satır başlık olduğu için 1'den başlar
+        let visible = false;
+        let td = tr[i].getElementsByTagName("td");
+        for (let j = 0; j < td.length - 1; j++) { // "İşlemler" sütununu arama (son sütun)
+            if (td[j] && td[j].innerText.toUpperCase().indexOf(filter) > -1) {
+                visible = true;
+                break;
+            }
+        }
+        tr[i].style.display = visible ? "" : "none";
+    }
+}
+</script>
+</body>
+</html>

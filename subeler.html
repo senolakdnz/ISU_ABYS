@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<script>
+    // Eğer kullanıcı giriş yapmadıysa direkt giriş sayfasına gönder
+    if (localStorage.getItem("giris") !== "true") {
+        window.location.href = "login.html";
+    }
+</script>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Şube Yönetimi</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f4f7f6; padding: 20px; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h2 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+        .form-group { display: flex; gap: 10px; margin-bottom: 20px; }
+        input[type="text"], select { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; }
+        button { padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; color: white; font-weight: bold; }
+        .btn-ekle { background-color: #28a745; }
+        .btn-iptal { background-color: #6c757d; display: none; }
+        .btn-duzenle { background-color: #ffc107; color: black; padding: 5px 10px; margin-right: 5px; }
+        .btn-sil { background-color: #dc3545; padding: 5px 10px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #007bff; color: white; }
+        tr:nth-child(even) { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>Şube Yönetimi</h2>
+    <div style="margin-bottom: 20px;">
+        <input type="text" id="aramaCubugu" onkeyup="tabloyuFiltrele()" 
+           placeholder="Tabloda arama yapın..." 
+           style="width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+    </div>
+    <div class="form-group">
+        <input type="hidden" id="subeId">
+        <input type="text" id="subeAd" placeholder="Şube Adı (Örn: Başiskele Şube Müdürlüğü)">
+        
+        <!-- İlçe ID inputu yerine Select (Combobox) menüsü ekledik -->
+        <select id="subeIlce">
+            <option value="">-- İlçe Seçiniz --</option>
+        </select>
+        
+        <button class="btn-ekle" id="btnKaydet" onclick="subeKaydet()">Kaydet</button>
+        <button class="btn-iptal" id="btnIptal" onclick="formuTemizle()">İptal</button>
+    </div>
+    <table>
+        <thead>
+            <tr><th>ID</th><th>Şube Adı</th><th>İlçe</th><th>İşlemler</th></tr>
+        </thead>
+        <tbody id="subeTablosu"></tbody>
+    </table>
+</div>
+
+<script>
+    const API_URL = "http://127.0.0.1:8000";
+
+    // Sayfa yüklendiğinde hem şubeleri hem de ilçeleri getir
+    window.onload = function() { 
+        subeleriGetir(); 
+        ilceSecenekleriniGetir();
+    };
+
+    // YENİ FONKSİYON: İlçe tablosundan verileri çekip combobox'a doldurur
+    function ilceSecenekleriniGetir() {
+        fetch(`${API_URL}/ilceler`)
+            .then(res => res.json())
+            .then(data => {
+                const secimKutusu = document.getElementById("subeIlce");
+                data.forEach(ilce => {
+                    // Ekranda İlçe Adı görünür, arka planda (value) İlçe ID tutulur
+                    secimKutusu.innerHTML += `<option value="${ilce.IlceID}">${ilce.IlceAd}</option>`;
+                });
+            });
+    }
+
+    function subeleriGetir() {
+        fetch(`${API_URL}/subeler`)
+            .then(res => res.json())
+            .then(data => {
+                const tablo = document.getElementById("subeTablosu");
+                tablo.innerHTML = "";
+                data.forEach(s => {
+                    tablo.innerHTML += `<tr>
+                        <td>${s.SubeID}</td>
+                        <td>${s.SubeAd}</td>
+                        <td>${s.IlceAd}</td> <!-- Ekranda İlçe Adı görünecek -->
+                        <td>
+                            <!-- Güncelle butonuna basıldığında yine arka planda ID gönderiliyor -->
+                            <button class="btn-duzenle" onclick="guncelle(${s.SubeID}, '${s.SubeAd}', ${s.SubeIlce})">Düzenle</button>
+                            <button class="btn-sil" onclick="sil(${s.SubeID})">Sil</button>
+                        </td></tr>`;
+                });
+            });
+    }
+
+    function subeKaydet() {
+        const id = document.getElementById("subeId").value;
+        const ad = document.getElementById("subeAd").value;
+        const ilce = parseInt(document.getElementById("subeIlce").value);
+
+        if (!ad || isNaN(ilce)) return alert("Lütfen Şube Adı girin ve listeden bir İlçe seçin!");
+
+        const methodType = id ? "PUT" : "POST";
+        const url = id ? `${API_URL}/subeler/${id}` : `${API_URL}/subeler`;
+
+        fetch(url, {
+            method: methodType,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ SubeAd: ad, SubeIlce: ilce })
+        }).then(() => { formuTemizle(); subeleriGetir(); });
+    }
+
+    function sil(id) {
+        if (confirm("Emin misiniz?")) {
+            fetch(`${API_URL}/subeler/${id}`, { method: "DELETE" }).then(() => subeleriGetir());
+        }
+    }
+
+    function guncelle(id, ad, ilce) {
+        document.getElementById("subeId").value = id;
+        document.getElementById("subeAd").value = ad;
+        document.getElementById("subeIlce").value = ilce;
+        document.getElementById("btnKaydet").innerText = "Güncelle";
+        document.getElementById("btnIptal").style.display = "inline-block";
+    }
+
+    function formuTemizle() {
+        document.getElementById("subeId").value = "";
+        document.getElementById("subeAd").value = "";
+        document.getElementById("subeIlce").value = "";
+        document.getElementById("btnKaydet").innerText = "Kaydet";
+        document.getElementById("btnIptal").style.display = "none";
+    }
+    function tabloyuFiltrele() {
+    let input = document.getElementById("aramaCubugu");
+    let filter = input.value.toUpperCase();
+    let table = document.querySelector("table");
+    let tr = table.getElementsByTagName("tr");
+
+    for (let i = 1; i < tr.length; i++) { // 0. satır başlık olduğu için 1'den başlar
+        let visible = false;
+        let td = tr[i].getElementsByTagName("td");
+        for (let j = 0; j < td.length - 1; j++) { // "İşlemler" sütununu arama (son sütun)
+            if (td[j] && td[j].innerText.toUpperCase().indexOf(filter) > -1) {
+                visible = true;
+                break;
+            }
+        }
+        tr[i].style.display = visible ? "" : "none";
+    }
+}
+</script>
+</body>
+</html>

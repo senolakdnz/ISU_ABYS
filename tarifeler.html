@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<script>
+    // Eğer kullanıcı giriş yapmadıysa direkt giriş sayfasına gönder
+    if (localStorage.getItem("giris") !== "true") {
+        window.location.href = "login.html";
+    }
+</script>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tarife Yönetim Paneli</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h2 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+        
+        /* Form Tasarımı */
+        .form-group { display: flex; gap: 10px; margin-bottom: 20px; }
+        input[type="text"], input[type="number"] { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; color: white; transition: 0.3s; }
+        .btn-ekle { background-color: #28a745; }
+        .btn-ekle:hover { background-color: #218838; }
+        .btn-iptal { background-color: #6c757d; display: none; }
+        .btn-duzenle { background-color: #ffc107; color: black; padding: 5px 10px; margin-right: 5px;}
+        .btn-sil { background-color: #dc3545; padding: 5px 10px; }
+        
+        /* Tablo Tasarımı */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #007bff; color: white; }
+        tr:nth-child(even) { background-color: #f2f2f2; }
+        tr:hover { background-color: #ddd; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>Tarife Yönetimi</h2>
+    <div style="margin-bottom: 20px;">
+        <input type="text" id="aramaCubugu" onkeyup="tabloyuFiltrele()" 
+           placeholder="Tabloda arama yapın..." 
+           style="width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+    </div>
+    <!-- Ekleme ve Güncelleme Formu -->
+    <div class="form-group">
+        <input type="hidden" id="tarifeId">
+        <input type="text" id="tarifeAd" placeholder="Tarife Adı (Örn: Mesken)">
+        <input type="number" id="tarifeUcret" placeholder="Ücret (Örn: 25.50)" step="0.01">
+        <button class="btn-ekle" id="btnKaydet" onclick="tarifeKaydet()">Kaydet</button>
+        <button class="btn-iptal" id="btnIptal" onclick="formuTemizle()">İptal</button>
+    </div>
+
+    <!-- Veri Tablosu -->
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Tarife Adı</th>
+                <th>Ücret (TL)</th>
+                <th>İşlemler</th>
+            </tr>
+        </thead>
+        <tbody id="tarifeTablosu">
+            <!-- JavaScript ile veriler buraya doldurulacak -->
+        </tbody>
+    </table>
+</div>
+
+<script>
+    const API_URL = "http://127.0.0.1:8000";
+
+    // Sayfa açıldığında verileri otomatik çek
+    window.onload = function() {
+        tarifeleriGetir();
+    };
+
+    // 1. OKU (Read) - Veritabanındaki tarifeleri listele
+    function tarifeleriGetir() {
+        fetch(`${API_URL}/tarifeler`)
+            .then(response => response.json())
+            .then(data => {
+                const tablo = document.getElementById("tarifeTablosu");
+                tablo.innerHTML = ""; // Tabloyu temizle
+                
+                data.forEach(tarife => {
+                    tablo.innerHTML += `
+                        <tr>
+                            <td>${tarife.TarifeID}</td>
+                            <td>${tarife.TarifeAd}</td>
+                            <td>${tarife.TarifeUcret} ₺</td>
+                            <td>
+                                <button class="btn-duzenle" onclick="guncellemeModunaGec(${tarife.TarifeID}, '${tarife.TarifeAd}', ${tarife.TarifeUcret})">Düzenle</button>
+                                <button class="btn-sil" onclick="tarifeSil(${tarife.TarifeID})">Sil</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            });
+    }
+
+    // 2. EKLE (Create) & GÜNCELLE (Update)
+    function tarifeKaydet() {
+        const id = document.getElementById("tarifeId").value;
+        const ad = document.getElementById("tarifeAd").value;
+        const ucret = parseFloat(document.getElementById("tarifeUcret").value);
+
+        if (!ad || isNaN(ucret)) {
+            alert("Lütfen tüm alanları doğru formatta doldurun (Ücret için nokta kullanın).");
+            return;
+        }
+
+        const veri = { TarifeAd: ad, TarifeUcret: ucret };
+
+        // Eğer ID varsa "Güncelleme (PUT)", yoksa "Ekleme (POST)" işlemi yap
+        const methodType = id ? "PUT" : "POST";
+        const url = id ? `${API_URL}/tarifeler/${id}` : `${API_URL}/tarifeler`;
+
+        fetch(url, {
+            method: methodType,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(veri)
+        })
+        .then(response => response.json())
+        .then(data => {
+            formuTemizle();
+            tarifeleriGetir(); // Tabloyu yenile
+        });
+    }
+
+    // 3. SİL (Delete)
+    function tarifeSil(id) {
+        if (confirm("Bu tarifeyi silmek istediğinize emin misiniz?")) {
+            fetch(`${API_URL}/tarifeler/${id}`, {
+                method: "DELETE"
+            })
+            .then(response => response.json())
+            .then(data => {
+                tarifeleriGetir(); // Tabloyu yenile
+            });
+        }
+    }
+
+    // 4. Forma Veri Çekme (Güncelleme Ön Hazırlık)
+    function guncellemeModunaGec(id, ad, ucret) {
+        document.getElementById("tarifeId").value = id;
+        document.getElementById("tarifeAd").value = ad;
+        document.getElementById("tarifeUcret").value = ucret;
+        
+        document.getElementById("btnKaydet").innerText = "Güncelle";
+        document.getElementById("btnIptal").style.display = "inline-block";
+    }
+
+    // Formu sıfırlama
+    function formuTemizle() {
+        document.getElementById("tarifeId").value = "";
+        document.getElementById("tarifeAd").value = "";
+        document.getElementById("tarifeUcret").value = "";
+        
+        document.getElementById("btnKaydet").innerText = "Kaydet";
+        document.getElementById("btnIptal").style.display = "none";
+    }
+
+    function tabloyuFiltrele() {
+    let input = document.getElementById("aramaCubugu");
+    let filter = input.value.toUpperCase();
+    let table = document.querySelector("table");
+    let tr = table.getElementsByTagName("tr");
+
+    for (let i = 1; i < tr.length; i++) { // 0. satır başlık olduğu için 1'den başlar
+        let visible = false;
+        let td = tr[i].getElementsByTagName("td");
+        for (let j = 0; j < td.length - 1; j++) { // "İşlemler" sütununu arama (son sütun)
+            if (td[j] && td[j].innerText.toUpperCase().indexOf(filter) > -1) {
+                visible = true;
+                break;
+            }
+        }
+        tr[i].style.display = visible ? "" : "none";
+    }
+}
+</script>
+</body>
+</html>

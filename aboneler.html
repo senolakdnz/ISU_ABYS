@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<script>
+    // Eğer kullanıcı giriş yapmadıysa direkt giriş sayfasına gönder
+    if (localStorage.getItem("giris") !== "true") {
+        window.location.href = "login.html";
+    }
+</script>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Abone Yönetim Paneli</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f4f7f6; padding: 20px; }
+        .container { max-width: 1200px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h2 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+        
+        .form-satir { display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap; }
+        .form-grup { flex: 1; min-width: 200px; display: flex; flex-direction: column; }
+        .form-grup label { font-size: 13px; font-weight: bold; color: #555; margin-bottom: 5px; }
+        input[type="text"], select { padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; }
+        
+        .buton-grubu { display: flex; gap: 10px; margin-top: 10px; }
+        button { padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; color: white; font-weight: bold; }
+        .btn-ekle { background-color: #28a745; width: 150px; }
+        .btn-iptal { background-color: #6c757d; width: 150px; display: none; }
+        .btn-duzenle { background-color: #ffc107; color: black; padding: 5px 10px; margin-right: 5px; }
+        .btn-sil { background-color: #dc3545; padding: 5px 10px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 30px; font-size: 14px; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #007bff; color: white; }
+        tr:nth-child(even) { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>Abone Yönetimi</h2>
+    <div style="margin-bottom: 20px;">
+        <input type="text" id="aramaCubugu" onkeyup="tabloyuFiltrele()" 
+           placeholder="Tabloda arama yapın..." 
+           style="width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+    </div>
+    <input type="hidden" id="aboneNoGuncelleme"> 
+    
+    <div class="form-satir">
+        <div class="form-grup">
+            <label>Ad</label>
+            <input type="text" id="aboneAd" placeholder="Abone Adı">
+        </div>
+        <div class="form-grup">
+            <label>Soyad</label>
+            <input type="text" id="aboneSoyad" placeholder="Abone Soyadı">
+        </div>
+        <div class="form-grup">
+            <label>İlçe</label>
+            <select id="aboneIlce"><option value="">-- Seçiniz --</option></select>
+        </div>
+    </div>
+    
+    <div class="form-satir">
+        <div class="form-grup">
+            <label>Şube</label>
+            <select id="aboneSube"><option value="">-- Seçiniz --</option></select>
+        </div>
+        <div class="form-grup">
+            <label>Abone Türü</label>
+            <select id="aboneTuru"><option value="">-- Seçiniz --</option></select>
+        </div>
+        <div class="form-grup">
+            <label>Tarife Türü</label>
+            <select id="aboneTarife"><option value="">-- Seçiniz --</option></select>
+        </div>
+        <div class="form-grup">
+            <label>Kullanılan Sayaç</label>
+            <select id="aboneSayac"><option value="">-- Seçiniz --</option></select>
+        </div>
+    </div>
+    
+    <div class="buton-grubu">
+        <button class="btn-ekle" id="btnKaydet" onclick="aboneKaydet()">Abone Kaydet</button>
+        <button class="btn-iptal" id="btnIptal" onclick="formuTemizle()">İptal</button>
+    </div>
+
+    <!-- Tablo başlıkları istenen sıraya göre dizildi -->
+    <table>
+        <thead>
+            <tr>
+                <th>Abone No</th>
+                <th>Ad Soyad</th>
+                <th>İlçe</th>
+                <th>Şube</th>
+                <th>Abone Türü</th>
+                <th>Tarife</th>
+                <th>Sayaç</th>
+                <th>İşlemler</th>
+            </tr>
+        </thead>
+        <tbody id="aboneTablosu"></tbody>
+    </table>
+</div>
+
+<script>
+    const API_URL = "http://127.0.0.1:8000";
+
+    window.onload = function() { 
+        aboneleriGetir(); 
+        
+        comboboxDoldur('/ilceler', 'aboneIlce', 'IlceID', 'IlceAd');
+        comboboxDoldur('/subeler', 'aboneSube', 'SubeID', 'SubeAd');
+        comboboxDoldur('/abone-turleri', 'aboneTuru', 'TurID', 'Tur');
+        comboboxDoldur('/tarifeler', 'aboneTarife', 'TarifeID', 'TarifeAd');
+        comboboxDoldur('/sayaclar', 'aboneSayac', 'SayacID', 'SayacAd');
+    };
+
+    function comboboxDoldur(endpoint, elementId, idAlani, adAlani) {
+        fetch(`${API_URL}${endpoint}`)
+            .then(res => res.json())
+            .then(data => {
+                const secimKutusu = document.getElementById(elementId);
+                data.forEach(item => {
+                    secimKutusu.innerHTML += `<option value="${item[idAlani]}">${item[adAlani]}</option>`;
+                });
+            });
+    }
+
+    function aboneleriGetir() {
+        // Cache sorununu engellemek için url sonuna zaman damgası eklendi
+        fetch(`${API_URL}/aboneler?t=` + new Date().getTime())
+            .then(res => res.json())
+            .then(data => {
+                const tablo = document.getElementById("aboneTablosu");
+                tablo.innerHTML = "";
+                data.forEach(a => {
+                    // Ekrana basma sırası tam istenildiği gibi eşitlendi
+                    tablo.innerHTML += `<tr>
+                        <td><strong>${a.AboneNumarasi}</strong></td>
+                        <td>${a.Ad} ${a.Soyad}</td>
+                        <td>${a.IlceAd}</td>
+                        <td>${a.SubeAd}</td>
+                        <td>${a.AboneTuruAd}</td>
+                        <td>${a.TarifeAd}</td>
+                        <td>${a.SayacAd}</td>
+                        <td>
+                            <button class="btn-duzenle" onclick="guncelle('${a.AboneNumarasi}', '${a.Ad}', '${a.Soyad}', ${a.IlceID}, ${a.SubeID}, ${a.AboneTuruID}, ${a.TarifeID}, ${a.SayacID})">Düzenle</button>
+                            <button class="btn-sil" onclick="sil('${a.AboneNumarasi}')">Sil</button>
+                        </td></tr>`;
+                });
+            })
+            .catch(err => console.error("Veri çekme hatası: ", err));
+    }
+
+    function aboneKaydet() {
+        const aboneNo = document.getElementById("aboneNoGuncelleme").value;
+        const veri = {
+            Ad: document.getElementById("aboneAd").value,
+            Soyad: document.getElementById("aboneSoyad").value,
+            Ilce: parseInt(document.getElementById("aboneIlce").value),
+            Sube: parseInt(document.getElementById("aboneSube").value),
+            AboneTuru: parseInt(document.getElementById("aboneTuru").value),
+            TarifeTuru: parseInt(document.getElementById("aboneTarife").value),
+            SayacID: parseInt(document.getElementById("aboneSayac").value)
+        };
+
+        if (!veri.Ad || !veri.Soyad || isNaN(veri.Ilce) || isNaN(veri.Sube) || isNaN(veri.AboneTuru) || isNaN(veri.TarifeTuru) || isNaN(veri.SayacID)) {
+            return alert("Lütfen tüm alanları doldurun ve listelerden seçim yapın!");
+        }
+
+        const methodType = aboneNo ? "PUT" : "POST";
+        const url = aboneNo ? `${API_URL}/aboneler/${aboneNo}` : `${API_URL}/aboneler`;
+
+        fetch(url, {
+            method: methodType,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(veri)
+        }).then(() => { formuTemizle(); aboneleriGetir(); });
+    }
+
+    function sil(aboneNo) {
+        if (confirm(`${aboneNo} numaralı aboneyi silmek istediğinize emin misiniz?`)) {
+            fetch(`${API_URL}/aboneler/${aboneNo}`, { method: "DELETE" }).then(() => aboneleriGetir());
+        }
+    }
+
+    function guncelle(aboneNo, ad, soyad, ilce, sube, aboneTuru, tarife, sayac) {
+        document.getElementById("aboneNoGuncelleme").value = aboneNo;
+        document.getElementById("aboneAd").value = ad;
+        document.getElementById("aboneSoyad").value = soyad;
+        document.getElementById("aboneIlce").value = ilce;
+        document.getElementById("aboneSube").value = sube;
+        document.getElementById("aboneTuru").value = aboneTuru;
+        document.getElementById("aboneTarife").value = tarife;
+        document.getElementById("aboneSayac").value = sayac;
+        
+        document.getElementById("btnKaydet").innerText = "Abone Güncelle";
+        document.getElementById("btnIptal").style.display = "inline-block";
+    }
+
+    function formuTemizle() {
+        document.getElementById("aboneNoGuncelleme").value = "";
+        document.getElementById("aboneAd").value = "";
+        document.getElementById("aboneSoyad").value = "";
+        document.getElementById("aboneIlce").value = "";
+        document.getElementById("aboneSube").value = "";
+        document.getElementById("aboneTuru").value = "";
+        document.getElementById("aboneTarife").value = "";
+        document.getElementById("aboneSayac").value = "";
+        
+        document.getElementById("btnKaydet").innerText = "Abone Kaydet";
+        document.getElementById("btnIptal").style.display = "none";
+    }
+
+    function tabloyuFiltrele() {
+    let input = document.getElementById("aramaCubugu");
+    let filter = input.value.toUpperCase();
+    let table = document.querySelector("table");
+    let tr = table.getElementsByTagName("tr");
+
+    for (let i = 1; i < tr.length; i++) { // 0. satır başlık olduğu için 1'den başlar
+        let visible = false;
+        let td = tr[i].getElementsByTagName("td");
+        for (let j = 0; j < td.length - 1; j++) { // "İşlemler" sütununu arama (son sütun)
+            if (td[j] && td[j].innerText.toUpperCase().indexOf(filter) > -1) {
+                visible = true;
+                break;
+            }
+        }
+        tr[i].style.display = visible ? "" : "none";
+    }
+}
+</script>
+</body>
+</html>

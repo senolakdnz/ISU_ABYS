@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<script>
+    // Eğer kullanıcı giriş yapmadıysa direkt giriş sayfasına gönder
+    if (localStorage.getItem("giris") !== "true") {
+        window.location.href = "login.html";
+    }
+</script>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Abone Türleri Yönetimi</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f4f7f6; padding: 20px; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h2 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+        .form-group { display: flex; gap: 10px; margin-bottom: 20px; }
+        input[type="text"] { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; color: white; font-weight: bold; }
+        .btn-ekle { background-color: #28a745; }
+        .btn-iptal { background-color: #6c757d; display: none; }
+        .btn-duzenle { background-color: #ffc107; color: black; padding: 5px 10px; margin-right: 5px; }
+        .btn-sil { background-color: #dc3545; padding: 5px 10px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #007bff; color: white; }
+        tr:nth-child(even) { background-color: #f2f2f2; }
+    </style>
+</head>
+<div class="container">
+    <h2>Abone Türleri Yönetimi</h2>
+    <div style="margin-bottom: 20px;">
+        <input type="text" id="aramaCubugu" onkeyup="tabloyuFiltrele()" 
+           placeholder="Tabloda arama yapın..." 
+           style="width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+    </div>
+    <div class="form-group">
+        <input type="hidden" id="turId">
+        <input type="text" id="turAd" placeholder="Abone Türü (Örn: Bireysel)">
+        <button class="btn-ekle" id="btnKaydet" onclick="turKaydet()">Kaydet</button>
+        <button class="btn-iptal" id="btnIptal" onclick="formuTemizle()">İptal</button>
+    </div>
+    <table>
+        <thead>
+            <tr><th>ID</th><th>Abone Türü</th><th>İşlemler</th></tr>
+        </thead>
+        <tbody id="turTablosu"></tbody>
+    </table>
+</div>
+
+<script>
+    const API_URL = "http://127.0.0.1:8000";
+
+    window.onload = function() { turleriGetir(); };
+
+    function turleriGetir() {
+        fetch(`${API_URL}/abone-turleri`)
+            .then(res => res.json())
+            .then(data => {
+                const tablo = document.getElementById("turTablosu");
+                tablo.innerHTML = "";
+                data.forEach(t => {
+                    tablo.innerHTML += `<tr>
+                        <td>${t.TurID}</td><td>${t.Tur}</td>
+                        <td>
+                            <button class="btn-duzenle" onclick="guncelle(${t.TurID}, '${t.Tur}')">Düzenle</button>
+                            <button class="btn-sil" onclick="sil(${t.TurID})">Sil</button>
+                        </td></tr>`;
+                });
+            });
+    }
+
+    function turKaydet() {
+        const id = document.getElementById("turId").value;
+        const turAd = document.getElementById("turAd").value;
+        if (!turAd) return alert("Tür adı boş olamaz!");
+
+        const methodType = id ? "PUT" : "POST";
+        const url = id ? `${API_URL}/abone-turleri/${id}` : `${API_URL}/abone-turleri`;
+
+        fetch(url, {
+            method: methodType,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ Tur: turAd })
+        }).then(() => { formuTemizle(); turleriGetir(); });
+    }
+
+    function sil(id) {
+        if (confirm("Emin misiniz?")) {
+            fetch(`${API_URL}/abone-turleri/${id}`, { method: "DELETE" }).then(() => turleriGetir());
+        }
+    }
+
+    function guncelle(id, tur) {
+        document.getElementById("turId").value = id;
+        document.getElementById("turAd").value = tur;
+        document.getElementById("btnKaydet").innerText = "Güncelle";
+        document.getElementById("btnIptal").style.display = "inline-block";
+    }
+
+    function formuTemizle() {
+        document.getElementById("turId").value = "";
+        document.getElementById("turAd").value = "";
+        document.getElementById("btnKaydet").innerText = "Kaydet";
+        document.getElementById("btnIptal").style.display = "none";
+    }
+
+    function tabloyuFiltrele() {
+    let input = document.getElementById("aramaCubugu");
+    let filter = input.value.toUpperCase();
+    let table = document.querySelector("table");
+    let tr = table.getElementsByTagName("tr");
+
+    for (let i = 1; i < tr.length; i++) { // 0. satır başlık olduğu için 1'den başlar
+        let visible = false;
+        let td = tr[i].getElementsByTagName("td");
+        for (let j = 0; j < td.length - 1; j++) { // "İşlemler" sütununu arama (son sütun)
+            if (td[j] && td[j].innerText.toUpperCase().indexOf(filter) > -1) {
+                visible = true;
+                break;
+            }
+        }
+        tr[i].style.display = visible ? "" : "none";
+    }
+}
+</script>
+</body>
+</html>

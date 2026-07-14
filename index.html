@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<script>
+    // Eğer kullanıcı giriş yapmadıysa direkt giriş sayfasına gönder
+    if (localStorage.getItem("giris") !== "true") {
+        window.location.href = "login.html";
+    }
+</script>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Yönetim Sistemi - Ana Panel</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #e9ecef; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .dashboard { width: 90%; max-width: 800px; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; }
+        h1 { color: #343a40; margin-bottom: 30px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
+        a { text-decoration: none; }
+        .btn-modul { padding: 20px; background-color: #007bff; color: white; border-radius: 8px; font-weight: bold; transition: transform 0.2s, background-color 0.2s; display: block; }
+        .btn-modul:hover { background-color: #0056b3; transform: translateY(-5px); }
+    </style>
+</head>
+<body>
+
+    <!-- Panelin görüneceği yer -->
+<div class="dashboard">
+    <h1>Yönetim Sistemi</h1>
+    <div class="grid">
+        <a href="aboneler.html"><div class="btn-modul">Abone İşlemleri</div></a>
+        <a href="sozlesmeler.html"><div class="btn-modul">Sözleşme Bilgileri</div></a>
+        <a href="subeler.html"><div class="btn-modul">Şube Yönetimi</div></a>
+        <a href="ilceler.html"><div class="btn-modul">İlçe Yönetimi</div></a>
+        <a href="sayaclar.html"><div class="btn-modul">Sayaç Yönetimi</div></a>
+        <a href="tiptur.html"><div class="btn-modul">Sayaç Tip Türleri</div></a>
+        <a href="tarifeler.html"><div class="btn-modul">Tarife Yönetimi</div></a>
+        <a href="abone_turleri.html"><div class="btn-modul">Abone Tür Yönetimi</div></a>
+        <button onclick="cikisYap()" style="margin-top: 20px; padding: 10px 20px; background-color: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
+    Hesaptan Çıkış Yap
+</button>
+
+<script>
+    function cikisYap() {
+        // Oturum bilgisini temizle
+        localStorage.removeItem("giris");
+        
+        // Giriş sayfasına yönlendir
+        window.location.href = "login.html";
+    }
+</script>
+    </div>
+</div>
+
+</body>
+</html>
