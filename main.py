@@ -7,6 +7,7 @@ import psycopg2
 from fastapi import HTTPException
 import json
 from fastapi.staticfiles import StaticFiles
+import os
 
 app = FastAPI(title="Abone Yönetim Sistemi API")
 
@@ -27,16 +28,14 @@ def get_db_connection():
 
 @app.post("/login")
 def login(kullanici: dict):
-    with open("kullanicilar.json", "r") as f:
-        kullanicilar = json.load(f)
+    # Sunucu tarafında okunan değerleri loglara yazdıralım
+    sistem_mail = os.getenv("KULLANICI_1_MAIL")
+    print(f"DEBUG - Gelen Mail: {kullanici['mail']}, Sistemdeki Mail: {sistem_mail}")
     
-    # Girilen mail ve şifreyi kontrol et
-    for k in kullanicilar:
-        if k["mail"] == kullanici["mail"] and k["sifre"] == kullanici["sifre"]:
-            return {"durum": "basarili"}
+    if kullanici["mail"] == sistem_mail and kullanici["sifre"] == os.getenv("KULLANICI_1_SIFRE"):
+        return {"durum": "basarili"}
     
-    raise HTTPException(status_code=401, detail="Hatalı giriş bilgileri!")
-
+    raise HTTPException(status_code=401, detail="Hatalı giriş!")
 
 class TarifeModel(BaseModel):
     TarifeAd: str
