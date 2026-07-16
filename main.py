@@ -30,6 +30,13 @@ def login(kullanici: dict):
         return {"durum": "basarili"}
     return {"durum": "hata"}
 
+@app.get("/index.html")
+def get_index():
+    return FileResponse("index.html")
+
+# 3. Kalan tüm HTML ve statik dosyaları bağla
+app.mount("/", StaticFiles(directory=".", html=True), name="static")
+
 @app.get("/")
 def read_index():
     return FileResponse("login.html")
