@@ -43,7 +43,7 @@ def get_index():
 def read_index():
     return FileResponse("login.html")
 
-"""@app.get("/aboneler.html")
+@app.get("/aboneler.html")
 def get_aboneler(): return FileResponse("aboneler.html")
 @app.get("/subeler.html")
 def get_subeler(): return FileResponse("subeler.html")
@@ -58,7 +58,7 @@ def get_tiptur(): return FileResponse("tiptur.html")
 @app.get("/abone_turleri.html")
 def get_abone_turleri(): return FileResponse("abone_turleri.html")
 @app.get("/sozlesmeler.html")
-def get_sozlesmeler(): return FileResponse("sozlesmeler.html")"""
+def get_sozlesmeler(): return FileResponse("sozlesmeler.html")
 
 class TarifeModel(BaseModel):
     TarifeAd: str
