@@ -7,8 +7,13 @@ from fastapi import HTTPException
 from fastapi.staticfiles import StaticFiles
 import os
 from fastapi.responses import FileResponse
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI(title="Abone Yönetim Sistemi API")
+
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -18,7 +23,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DATABASE_URL = "postgresql://neondb_owner:npg_URqosFuJYk26@ep-restless-lab-aswidi9l-pooler.c-4.eu-central-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+DATABASE_URL = os.getenv("DATABASE_URL_NET")
 
 def get_db_connection():
     return psycopg2.connect(DATABASE_URL)
