@@ -26,18 +26,19 @@
         sifre: document.getElementById('sifre').value 
     };
 
-    // Dikkat: Fetch isteği /login rotasına gidiyor, dosya yoluna değil!
-    const res = await fetch('https://isu-abys.onrender.com/login', {
-    method: 'POST',
-    headers: {'Content-Type': 'kullanicilar/json'},
-    body: JSON.stringify(data)
-});
+    const res = await fetch('/login', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    });
 
-    if (res.ok) {
+    const sonuc = await res.json(); // Yanıtı JSON olarak al[cite: 3]
+
+    if (res.ok && sonuc.durum === "basarili") {
         localStorage.setItem("giris", "true");
-        window.location.href = "index.html";
+        window.location.href = "/"; // veya /index.html
     } else {
-        alert("Hatalı mail veya şifre!");
+        alert(sonuc.mesaj || "Hatalı mail veya şifre!");
     }
 }
 </script>

@@ -30,10 +30,18 @@ def get_db_connection():
 
 @app.post("/login")
 def login(kullanici: dict):
-    # Buradaki kontrol mantığın kalsın
-    if kullanici["mail"] == os.getenv("KULLANICI_1_MAIL") and kullanici["sifre"] == os.getenv("KULLANICI_1_SIFRE"):
+    # Verilerin varlığını ve eşleşmesini kontrol et
+    kayitli_mail = os.getenv("KULLANICI_1_MAIL")
+    kayitli_sifre = os.getenv("KULLANICI_1_SIFRE")
+    
+    # Mail veya şifre None gelirse veya yanlışsa hata döndür
+    if not kayitli_mail or not kayitli_sifre:
+        return {"durum": "hata", "mesaj": "Sistem yapılandırma hatası."}
+    
+    if kullanici.get("mail") == kayitli_mail and kullanici.get("sifre") == kayitli_sifre:
         return {"durum": "basarili"}
-    return {"durum": "hata"}
+    
+    return {"durum": "hata", "mesaj": "Hatalı kullanıcı bilgisi!"}
 
 @app.get("/index.html")
 def get_index():
