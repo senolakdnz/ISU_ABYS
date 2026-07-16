@@ -57,7 +57,7 @@
     window.onload = function() { ilceleriGetir(); };
 
     function ilceleriGetir() {
-        fetch(`${API_URL}/ilceler`)
+        fetch(`/ilceler`)
             .then(res => res.json())
             .then(data => {
                 const tablo = document.getElementById("ilceTablosu");

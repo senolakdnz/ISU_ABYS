@@ -55,7 +55,7 @@
     window.onload = function() { tipleriGetir(); };
 
     function tipleriGetir() {
-        fetch(`${API_URL}/tipturler`)
+        fetch(`/tipturler`)
             .then(res => res.json())
             .then(data => {
                 const tablo = document.getElementById("tipTablosu");

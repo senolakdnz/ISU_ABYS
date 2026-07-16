@@ -55,7 +55,7 @@
     window.onload = function() { turleriGetir(); };
 
     function turleriGetir() {
-        fetch(`${API_URL}/abone-turleri`)
+        fetch(`/abone_turleri`)
             .then(res => res.json())
             .then(data => {
                 const tablo = document.getElementById("turTablosu");
