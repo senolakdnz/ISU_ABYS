@@ -26,19 +26,26 @@
         sifre: document.getElementById('sifre').value 
     };
 
-    const res = await fetch('/login', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(data)
-    });
+    try {
+        const res = await fetch('/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
 
-    const sonuc = await res.json(); // Yanıtı JSON olarak al[cite: 3]
+        const sonuc = await res.json(); // Yanıtı JSON olarak çözümle[cite: 3]
+        console.log("Sunucudan gelen yanıt:", sonuc); // Hata ayıklama için konsola yazdır
 
-    if (res.ok && sonuc.durum === "basarili") {
-        localStorage.setItem("giris", "true");
-        window.location.href = "/"; // veya /index.html
-    } else {
-        alert(sonuc.mesaj || "Hatalı mail veya şifre!");
+        // Hem HTTP durumu başarılı olmalı hem de 'durum' değeri 'basarili' gelmeli
+        if (res.ok && sonuc.durum === "basarili") {
+            localStorage.setItem("giris", "true");
+            window.location.href = "/index.html"; // Yönlendirme rotası
+        } else {
+            alert(sonuc.mesaj || "Hatalı mail veya şifre!");
+        }
+    } catch (error) {
+        console.error("Fetch hatası:", error);
+        alert("Bağlantı hatası oluştu!");
     }
 }
 </script>
