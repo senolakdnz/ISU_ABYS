@@ -39,15 +39,26 @@ def login(kullanici: dict):
 def get_index():
     return FileResponse("index.html")
 
-# 3. Kalan tüm HTML ve statik dosyaları bağla
-app.mount("/", StaticFiles(directory=".", html=True), name="static")
-
 @app.get("/")
 def read_index():
     return FileResponse("login.html")
 
-# 3. Statik dosyaları bağla (CSS, JS, diğer HTML'ler için)
-app.mount("/static", StaticFiles(directory="."), name="static")
+@app.get("/aboneler.html")
+def get_aboneler(): return FileResponse("aboneler.html")
+@app.get("/subeler.html")
+def get_subeler(): return FileResponse("subeler.html")
+@app.get("/tarifeler.html")
+def get_tarifeler(): return FileResponse("tarifeler.html")
+@app.get("/sayaclar.html")
+def get_sayaclar(): return FileResponse("sayaclar.html")
+@app.get("/ilceler.html")
+def get_ilceler(): return FileResponse("ilceler.html")
+@app.get("/tiptur.html")
+def get_tiptur(): return FileResponse("tiptur.html")
+@app.get("/abone_turleri.html")
+def get_abone_turleri(): return FileResponse("abone_turleri.html")
+@app.get("/sozlesmeler.html")
+def get_sozlesmeler(): return FileResponse("sozlesmeler.html")
 
 class TarifeModel(BaseModel):
     TarifeAd: str
@@ -454,3 +465,6 @@ def sozlesme_sil(no: int):
     conn.commit()
     conn.close()
     return {"mesaj": "Sözleşme silindi."}
+
+# Sadece bu kalsın (en altta):
+app.mount("/static", StaticFiles(directory="."), name="static")
