@@ -18,7 +18,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DATABASE_URL = "postgresql://neondb_owner:npg_2QNMScor8GHy@ep-restless-lab-aswidi9l-pooler.c-4.eu-central-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+DATABASE_URL = "postgresql://neondb_owner:npg_URqosFuJYk26@ep-restless-lab-aswidi9l-pooler.c-4.eu-central-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 
 def get_db_connection():
     return psycopg2.connect(DATABASE_URL)
