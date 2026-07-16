@@ -69,7 +69,7 @@
 
     // YENİ FONKSİYON: TipTur tablosundan verileri çekip combobox'a doldurur
     function tipSecenekleriniGetir() {
-        fetch(`/tipturler`)
+        fetch(`${API_URL}/tipturler`)
             .then(res => res.json())
             .then(data => {
                 const secimKutusu = document.getElementById("sayacTipTuru");

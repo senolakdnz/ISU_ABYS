@@ -127,7 +127,7 @@
 
     function aboneleriGetir() {
         // Cache sorununu engellemek için url sonuna zaman damgası eklendi
-        fetch("/aboneler")
+        fetch(`${API_URL}/aboneler?t=` + new Date().getTime())
             .then(res => res.json())
             .then(data => {
                 const tablo = document.getElementById("aboneTablosu");

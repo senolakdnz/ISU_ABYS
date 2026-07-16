@@ -67,7 +67,7 @@
 
     // YENİ FONKSİYON: İlçe tablosundan verileri çekip combobox'a doldurur
     function ilceSecenekleriniGetir() {
-        fetch(`/ilceler`)
+        fetch(`${API_URL}/ilceler`)
             .then(res => res.json())
             .then(data => {
                 const secimKutusu = document.getElementById("subeIlce");

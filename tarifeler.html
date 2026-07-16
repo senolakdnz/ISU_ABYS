@@ -78,7 +78,7 @@
 
     // 1. OKU (Read) - Veritabanındaki tarifeleri listele
     function tarifeleriGetir() {
-        fetch(`/tarifeler`)
+        fetch(`${API_URL}/tarifeler`)
             .then(response => response.json())
             .then(data => {
                 const tablo = document.getElementById("tarifeTablosu");

@@ -78,7 +78,7 @@
         sSelect.innerHTML = '<option value="">-- Seçiniz --</option>'; 
 
     // 2. Sonra verileri çek ve ekle
-        const sRes = await fetch(`/subeler`);
+        const sRes = await fetch(`${API}/subeler`);
         const subeler = await sRes.json();
 
         subeler.forEach(s => {
