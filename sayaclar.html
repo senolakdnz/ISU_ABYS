@@ -38,21 +38,19 @@
            style="width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
     </div>
     <div class="form-group">
-        <input type="hidden" id="sayacId">
-        <input type="text" id="sayacAd" placeholder="Sayaç Adı (Örn: Akıllı Sayaç 2026)">
-        
-        <!-- Tip Türü ID inputu yerine Açılır Liste (Combobox) ekledik -->
-        <select id="sayacTipTuru">
-            <option value="">-- Tip Türü Seçiniz --</option>
-        </select>
-        
-        <button class="btn-ekle" id="btnKaydet" onclick="sayacKaydet()">Kaydet</button>
-        <button class="btn-iptal" id="btnIptal" onclick="formuTemizle()">İptal</button>
-    </div>
+    <input type="hidden" id="sayacId">
+    <input type="text" id="sayacAd" placeholder="Sayaç Adı">
+    <select id="sayacTipTuru"><option value="">-- Tip Türü Seçiniz --</option></select>
+    <select id="sayacAmbari"><option value="">-- Ambar Seçiniz --</option></select>
+    <input type="date" id="islemTarihi">
+    
+    <button class="btn-ekle" id="btnKaydet" onclick="sayacKaydet()">Kaydet</button>
+    <button class="btn-iptal" id="btnIptal" onclick="formuTemizle()">İptal</button>
+</div>
     <table>
         <thead>
-            <!-- Başlığı "Tip Türü ID" yerine "Tip Türü" yaptık -->
-            <tr><th>ID</th><th>Sayaç Adı</th><th>Tip Türü</th><th>İşlemler</th></tr>
+    <tr><th>Sayaç ID</th><th>Sayaç Adı</th><th>Tip Türü</th><th>Ambar</th><th>İşlem Tarihi</th><th>İşlemler</th></tr>
+</thead>
         </thead>
         <tbody id="sayacTablosu"></tbody>
     </table>
@@ -63,58 +61,60 @@
 
     // Sayfa açıldığında hem sayaçları hem de tipleri listele
     window.onload = function() { 
-        sayaclariGetir(); 
-        tipSecenekleriniGetir();
-    };
+    sayaclariGetir(); 
+    tipSecenekleriniGetir();
+    ambarSecenekleriniGetir();
+};
 
-    // YENİ FONKSİYON: TipTur tablosundan verileri çekip combobox'a doldurur
-    function tipSecenekleriniGetir() {
-        fetch(`${API_URL}/tipturler`)
-            .then(res => res.json())
-            .then(data => {
-                const secimKutusu = document.getElementById("sayacTipTuru");
-                data.forEach(tip => {
-                    // Ekranda Tip Adı görünür, arka planda (value) Tip ID tutulur
-                    secimKutusu.innerHTML += `<option value="${tip.TipID}">${tip.TipAd}</option>`;
-                });
-            });
-    }
+function ambarSecenekleriniGetir() {
+    fetch('/ambarlar').then(res => res.json()).then(data => {
+        const secimKutusu = document.getElementById("sayacAmbari");
+        data.forEach(ambar => {
+            secimKutusu.innerHTML += `<option value="${ambar.AmbarID}">${ambar.AmbarAd}</option>`;
+        });
+    });
+}
 
-    function sayaclariGetir() {
-        fetch(`${API_URL}/sayaclar`)
-            .then(res => res.json())
-            .then(data => {
-                const tablo = document.getElementById("sayacTablosu");
-                tablo.innerHTML = "";
-                data.forEach(s => {
-                    tablo.innerHTML += `<tr>
-                        <td>${s.SayacID}</td>
-                        <td>${s.SayacAd}</td>
-                        <td>${s.TipAd}</td> <!-- Ekrana Tipin Adını Yazdırıyoruz -->
-                        <td>
-                            <button class="btn-duzenle" onclick="guncelle(${s.SayacID}, '${s.SayacAd}', ${s.SayacTipTuru})">Düzenle</button>
-                            <button class="btn-sil" onclick="sil(${s.SayacID})">Sil</button>
-                        </td></tr>`;
-                });
-            });
-    }
+function formatSayacID(id) {
+    // 1 sayısını alıp SYC0000001 yapar
+    return "SYC" + String(id).padStart(7, '0');
+}
 
-    function sayacKaydet() {
-        const id = document.getElementById("sayacId").value;
-        const ad = document.getElementById("sayacAd").value;
-        const tip = parseInt(document.getElementById("sayacTipTuru").value);
+function sayaclariGetir() {
+    fetch('/sayaclar').then(res => res.json()).then(data => {
+        const tablo = document.getElementById("sayacTablosu");
+        tablo.innerHTML = "";
+        data.forEach(s => {
+            const formatliID = formatSayacID(s.SayacID); // Formatlanmış ID
+            tablo.innerHTML += `<tr>
+                <td><strong>${formatliID}</strong></td>
+                <td>${s.SayacAd}</td>
+                <td>${s.TipAd}</td>
+                <td>${s.AmbarAd || 'Belirtilmedi'}</td>
+                <td>${s.IslemTarihi || '-'}</td>
+                <td>
+                    <button class="btn-duzenle" onclick="guncelle(${s.SayacID}, '${s.SayacAd}', ${s.SayacTipTuru}, ${s.SayacAmbari}, '${s.IslemTarihi}')">Düzenle</button>
+                    <button class="btn-sil" onclick="sil(${s.SayacID})">Sil</button>
+                </td></tr>`;
+        });
+    });
+}
 
-        if (!ad || isNaN(tip)) return alert("Lütfen Sayaç Adı girin ve listeden bir Tip Türü seçin!");
+function sayacKaydet() {
+    const id = document.getElementById("sayacId").value;
+    const ad = document.getElementById("sayacAd").value;
+    const tip = parseInt(document.getElementById("sayacTipTuru").value);
+    const ambar = parseInt(document.getElementById("sayacAmbari").value);
+    const tarih = document.getElementById("islemTarihi").value;
 
-        const methodType = id ? "PUT" : "POST";
-        const url = id ? `${API_URL}/sayaclar/${id}` : `${API_URL}/sayaclar`;
+    if (!ad || isNaN(tip) || isNaN(ambar) || !tarih) return alert("Lütfen tüm alanları doldurun!");
 
-        fetch(url, {
-            method: methodType,
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ SayacAd: ad, SayacTipTuru: tip })
-        }).then(() => { formuTemizle(); sayaclariGetir(); });
-    }
+    fetch(id ? `/sayaclar/${id}` : '/sayaclar', {
+        method: id ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ SayacAd: ad, SayacTipTuru: tip, SayacAmbari: ambar, IslemTarihi: tarih })
+    }).then(() => { formuTemizle(); sayaclariGetir(); });
+}
 
     function sil(id) {
         if (confirm("Emin misiniz?")) {
@@ -122,21 +122,25 @@
         }
     }
 
-    function guncelle(id, ad, tip) {
-        document.getElementById("sayacId").value = id;
-        document.getElementById("sayacAd").value = ad;
-        document.getElementById("sayacTipTuru").value = tip;
-        document.getElementById("btnKaydet").innerText = "Güncelle";
-        document.getElementById("btnIptal").style.display = "inline-block";
-    }
+    function guncelle(id, ad, tip, ambar, tarih) {
+    document.getElementById("sayacId").value = id;
+    document.getElementById("sayacAd").value = ad;
+    document.getElementById("sayacTipTuru").value = tip;
+    document.getElementById("sayacAmbari").value = ambar;
+    document.getElementById("islemTarihi").value = tarih;
+    document.getElementById("btnKaydet").innerText = "Güncelle";
+    document.getElementById("btnIptal").style.display = "inline-block";
+}
 
-    function formuTemizle() {
-        document.getElementById("sayacId").value = "";
-        document.getElementById("sayacAd").value = "";
-        document.getElementById("sayacTipTuru").value = "";
-        document.getElementById("btnKaydet").innerText = "Kaydet";
-        document.getElementById("btnIptal").style.display = "none";
-    }
+function formuTemizle() {
+    document.getElementById("sayacId").value = "";
+    document.getElementById("sayacAd").value = "";
+    document.getElementById("sayacTipTuru").value = "";
+    document.getElementById("sayacAmbari").value = "";
+    document.getElementById("islemTarihi").value = "";
+    document.getElementById("btnKaydet").innerText = "Kaydet";
+    document.getElementById("btnIptal").style.display = "none";
+}
 
     function tabloyuFiltrele() {
     let input = document.getElementById("aramaCubugu");

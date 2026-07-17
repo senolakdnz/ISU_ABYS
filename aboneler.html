@@ -104,15 +104,18 @@
 <script>
     const API_URL = "https://isu-abys.onrender.com";
 
-    window.onload = function() { 
-        aboneleriGetir(); 
-        
-        comboboxDoldur('/ilceler', 'aboneIlce', 'IlceID', 'IlceAd');
-        comboboxDoldur('/subeler', 'aboneSube', 'SubeID', 'SubeAd');
-        comboboxDoldur('/abone-turleri', 'aboneTuru', 'TurID', 'Tur');
-        comboboxDoldur('/tarifeler', 'aboneTarife', 'TarifeID', 'TarifeAd');
-        comboboxDoldur('/sayaclar', 'aboneSayac', 'SayacID', 'SayacAd');
-    };
+    // window.onload içinden şu satırı SİL:
+// comboboxDoldur('/sayaclar', 'aboneSayac', 'SayacID', 'SayacAd');
+
+// Onun yerine özel sayaç filtreleme fonksiyonumuzu çağıracağız:
+window.onload = function() { 
+    aboneleriGetir(); 
+    comboboxDoldur('/ilceler', 'aboneIlce', 'IlceID', 'IlceAd');
+    comboboxDoldur('/subeler', 'aboneSube', 'SubeID', 'SubeAd');
+    comboboxDoldur('/abone-turleri', 'aboneTuru', 'TurID', 'Tur');
+    comboboxDoldur('/tarifeler', 'aboneTarife', 'TarifeID', 'TarifeAd');
+    sayacFiltreliGetir(); // YENİ FONKSİYON
+};
 
     function comboboxDoldur(endpoint, elementId, idAlani, adAlani) {
         fetch(`${API_URL}${endpoint}`)
@@ -133,20 +136,22 @@
                 const tablo = document.getElementById("aboneTablosu");
                 tablo.innerHTML = "";
                 data.forEach(a => {
-                    // Ekrana basma sırası tam istenildiği gibi eşitlendi
-                    tablo.innerHTML += `<tr>
-                        <td><strong>${a.AboneNumarasi}</strong></td>
-                        <td>${a.Ad} ${a.Soyad}</td>
-                        <td>${a.IlceAd}</td>
-                        <td>${a.SubeAd}</td>
-                        <td>${a.AboneTuruAd}</td>
-                        <td>${a.TarifeAd}</td>
-                        <td>${a.SayacAd}</td>
-                        <td>
-                            <button class="btn-duzenle" onclick="guncelle('${a.AboneNumarasi}', '${a.Ad}', '${a.Soyad}', ${a.IlceID}, ${a.SubeID}, ${a.AboneTuruID}, ${a.TarifeID}, ${a.SayacID})">Düzenle</button>
-                            <button class="btn-sil" onclick="sil('${a.AboneNumarasi}')">Sil</button>
-                        </td></tr>`;
-                });
+    // SayacID'yi SYC0000001 formatına dönüştürüyoruz
+    const formatliSayacID = a.SayacID ? ("SYC" + String(a.SayacID).padStart(7, '0')) : "-";
+
+    tablo.innerHTML += `<tr>
+        <td><strong>${a.AboneNumarasi}</strong></td>
+        <td>${a.Ad} ${a.Soyad}</td>
+        <td>${a.IlceAd}</td>
+        <td>${a.SubeAd}</td>
+        <td>${a.AboneTuruAd}</td>
+        <td>${a.TarifeAd}</td>
+        <td><strong>${formatliSayacID}</strong></td> <!-- Sayac Adı Yerine Sadece Formatlı ID -->
+        <td>
+            <button class="btn-duzenle" onclick="guncelle('${a.AboneNumarasi}', '${a.Ad}', '${a.Soyad}', ${a.IlceID}, ${a.SubeID}, ${a.AboneTuruID}, ${a.TarifeID}, ${a.SayacID})">Düzenle</button>
+            <button class="btn-sil" onclick="sil('${a.AboneNumarasi}')">Sil</button>
+        </td></tr>`;
+});
             })
             .catch(err => console.error("Veri çekme hatası: ", err));
     }
@@ -228,6 +233,23 @@
         }
         tr[i].style.display = visible ? "" : "none";
     }
+}
+
+function sayacFiltreliGetir() {
+    fetch('/sayaclar')
+        .then(res => res.json())
+        .then(data => {
+            const secimKutusu = document.getElementById('aboneSayac');
+            secimKutusu.innerHTML = '<option value="">-- Seçiniz --</option>'; // Temizle
+            
+            data.forEach(item => {
+                // SADECE AmbarAd = 'İlçe Ambarı' olanları listeye ekler
+                if (item.AmbarAd === "İlçe Ambarı") {
+                    const formatliID = "SYC" + String(item.SayacID).padStart(7, '0');
+                    secimKutusu.innerHTML += `<option value="${item.SayacID}">${formatliID} - ${item.SayacAd}</option>`;
+                }
+            });
+        });
 }
 </script>
 </body>

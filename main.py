@@ -70,6 +70,8 @@ def get_tiptur(): return FileResponse("tiptur.html")
 def get_abone_turleri(): return FileResponse("abone_turleri.html")
 @app.get("/sozlesmeler.html")
 def get_sozlesmeler(): return FileResponse("sozlesmeler.html")
+@app.get("/ambarlar.html")
+def get_ambarlar(): return FileResponse("ambarlar.html")
 
 class TarifeModel(BaseModel):
     TarifeAd: str
@@ -205,12 +207,15 @@ def sube_sil(sube_id: int):
 class SayacModel(BaseModel):
     SayacAd: str
     SayacTipTuru: int
+    SayacAmbari: int
+    IslemTarihi: date
 
 @app.post("/sayaclar")
 def sayac_ekle(sayac: SayacModel):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO Sayaclar (SayacAd, SayacTipTuru) VALUES (%s, %s)", (sayac.SayacAd, sayac.SayacTipTuru))
+    cursor.execute("INSERT INTO Sayaclar (SayacAd, SayacTipTuru, SayacAmbari, IslemTarihi) VALUES (%s, %s, %s, %s)", 
+                   (sayac.SayacAd, sayac.SayacTipTuru, sayac.SayacAmbari, sayac.IslemTarihi))
     conn.commit()
     conn.close()
     return {"mesaj": "Sayaç eklendi."}
@@ -220,26 +225,27 @@ def sayaclari_getir():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # INNER JOIN ile Sayaclar ve TipTur tablolarını birleştiriyoruz
+    # INNER JOIN ve LEFT JOIN ile Tip ve Ambar isimlerini çekiyoruz
     sorgu = """
-    SELECT Sayaclar.SayacID, Sayaclar.SayacAd, Sayaclar.SayacTipTuru, TipTur.TipAd 
-    FROM Sayaclar 
-    INNER JOIN TipTur ON Sayaclar.SayacTipTuru = TipTur.TipID 
-    ORDER BY Sayaclar.SayacID ASC
+    SELECT s.SayacID, s.SayacAd, s.SayacTipTuru, t.TipAd, s.SayacAmbari, a.AmbarAd, s.IslemTarihi 
+    FROM Sayaclar s 
+    INNER JOIN TipTur t ON s.SayacTipTuru = t.TipID 
+    LEFT JOIN Ambarlar a ON s.SayacAmbari = a.AmbarID
+    ORDER BY s.SayacID ASC
     """
     
     cursor.execute(sorgu)
     veri = cursor.fetchall()
     conn.close()
     
-    # JSON verisine 'TipAd' (r[3]) bilgisini de ekliyoruz
-    return [{"SayacID": r[0], "SayacAd": r[1], "SayacTipTuru": r[2], "TipAd": r[3]} for r in veri]
+    return [{"SayacID": r[0], "SayacAd": r[1], "SayacTipTuru": r[2], "TipAd": r[3], "SayacAmbari": r[4], "AmbarAd": r[5], "IslemTarihi": r[6]} for r in veri]
 
 @app.put("/sayaclar/{sayac_id}")
 def sayac_guncelle(sayac_id: int, sayac: SayacModel):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("UPDATE Sayaclar SET SayacAd = %s, SayacTipTuru = %s WHERE SayacID = %s", (sayac.SayacAd, sayac.SayacTipTuru, sayac_id))
+    cursor.execute("UPDATE Sayaclar SET SayacAd = %s, SayacTipTuru = %s, SayacAmbari = %s, IslemTarihi = %s WHERE SayacID = %s", 
+                   (sayac.SayacAd, sayac.SayacTipTuru, sayac.SayacAmbari, sayac.IslemTarihi, sayac_id))
     conn.commit()
     conn.close()
     return {"mesaj": "Sayaç güncellendi."}
@@ -476,6 +482,45 @@ def sozlesme_sil(no: int):
     conn.commit()
     conn.close()
     return {"mesaj": "Sözleşme silindi."}
+
+class AmbarModel(BaseModel):
+    AmbarAd: str
+
+@app.post("/ambarlar")
+def ambar_ekle(ambar: AmbarModel):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO Ambarlar (AmbarAd) VALUES (%s)", (ambar.AmbarAd,))
+    conn.commit()
+    conn.close()
+    return {"mesaj": "Ambar eklendi."}
+
+@app.get("/ambarlar")
+def ambarlari_getir():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT AmbarID, AmbarAd FROM Ambarlar ORDER BY AmbarID ASC")
+    veri = cursor.fetchall()
+    conn.close()
+    return [{"AmbarID": r[0], "AmbarAd": r[1]} for r in veri]
+
+@app.put("/ambarlar/{ambar_id}")
+def ambar_guncelle(ambar_id: int, ambar: AmbarModel):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE Ambarlar SET AmbarAd = %s WHERE AmbarID = %s", (ambar.AmbarAd, ambar_id))
+    conn.commit()
+    conn.close()
+    return {"mesaj": "Ambar güncellendi."}
+
+@app.delete("/ambarlar/{ambar_id}")
+def ambar_sil(ambar_id: int):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM Ambarlar WHERE AmbarID = %s", (ambar_id,))
+    conn.commit()
+    conn.close()
+    return {"mesaj": "Ambar silindi."}
 
 # Sadece bu kalsın (en altta):
 app.mount("/static", StaticFiles(directory="."), name="static")

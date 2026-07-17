@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Ambar Yönetimi</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f4f7f6; padding: 20px; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h2 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+        .form-group { display: flex; gap: 10px; margin-bottom: 20px; }
+        input[type="text"] { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; color: white; font-weight: bold; }
+        .btn-ekle { background-color: #28a745; }
+        .btn-iptal { background-color: #6c757d; display: none; }
+        .btn-duzenle { background-color: #ffc107; color: black; padding: 5px 10px; margin-right: 5px; }
+        .btn-sil { background-color: #dc3545; padding: 5px 10px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #007bff; color: white; }
+        tr:nth-child(even) { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>Ambar Yönetimi</h2>
+    <div class="form-group">
+        <input type="hidden" id="ambarId">
+        <input type="text" id="ambarAd" placeholder="Ambar Adı (Örn: Merkez Ambarı)">
+        <button class="btn-ekle" id="btnKaydet" onclick="ambarKaydet()">Kaydet</button>
+        <button class="btn-iptal" id="btnIptal" onclick="formuTemizle()">İptal</button>
+    </div>
+    <table>
+        <thead><tr><th>ID</th><th>Ambar Adı</th><th>İşlemler</th></tr></thead>
+        <tbody id="ambarTablosu"></tbody>
+    </table>
+</div>
+<script>
+    window.onload = function() { ambarlariGetir(); };
+
+    function ambarlariGetir() {
+        fetch('/ambarlar').then(res => res.json()).then(data => {
+            const tablo = document.getElementById("ambarTablosu");
+            tablo.innerHTML = "";
+            data.forEach(a => {
+                tablo.innerHTML += `<tr><td>${a.AmbarID}</td><td>${a.AmbarAd}</td>
+                    <td><button class="btn-duzenle" onclick="guncelle(${a.AmbarID}, '${a.AmbarAd}')">Düzenle</button>
+                    <button class="btn-sil" onclick="sil(${a.AmbarID})">Sil</button></td></tr>`;
+            });
+        });
+    }
+
+    function ambarKaydet() {
+        const id = document.getElementById("ambarId").value;
+        const ad = document.getElementById("ambarAd").value;
+        if (!ad) return alert("Ambar adı boş olamaz!");
+
+        fetch(id ? `/ambarlar/${id}` : '/ambarlar', {
+            method: id ? "PUT" : "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ AmbarAd: ad })
+        }).then(() => { formuTemizle(); ambarlariGetir(); });
+    }
+
+    function sil(id) {
+        if (confirm("Silmek istediğinize emin misiniz?")) {
+            fetch(`/ambarlar/${id}`, { method: "DELETE" }).then(() => ambarlariGetir());
+        }
+    }
+
+    function guncelle(id, ad) {
+        document.getElementById("ambarId").value = id;
+        document.getElementById("ambarAd").value = ad;
+        document.getElementById("btnKaydet").innerText = "Güncelle";
+        document.getElementById("btnIptal").style.display = "inline-block";
+    }
+
+    function formuTemizle() {
+        document.getElementById("ambarId").value = "";
+        document.getElementById("ambarAd").value = "";
+        document.getElementById("btnKaydet").innerText = "Kaydet";
+        document.getElementById("btnIptal").style.display = "none";
+    }
+</script>
+</body>
+</html>
