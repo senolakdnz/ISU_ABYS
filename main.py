@@ -224,17 +224,21 @@ def sayac_ekle(sayac: SayacModel):
 def sayaclari_getir():
     conn = get_db_connection()
     cursor = conn.cursor()
+    # Abone tablosunu (ab) LEFT JOIN ile bağlıyoruz ve AboneNumarasi'nı çekiyoruz
     sorgu = """
-    SELECT s.SayacID, s.SayacAd, s.SayacTipTuru, t.TipAd, s.SayacAmbari, a.AmbarAd, s.IslemTarihi, s.LogHaritasi 
+    SELECT s.SayacID, s.SayacAd, s.SayacTipTuru, t.TipAd, s.SayacAmbari, a.AmbarAd, s.IslemTarihi, s.LogHaritasi, ab.AboneNumarasi 
     FROM Sayaclar s 
     INNER JOIN TipTur t ON s.SayacTipTuru = t.TipID 
     LEFT JOIN Ambarlar a ON s.SayacAmbari = a.AmbarID
+    LEFT JOIN Abone ab ON s.SayacID = ab.SayacID
     ORDER BY s.SayacID ASC
     """
     cursor.execute(sorgu)
     veri = cursor.fetchall()
     conn.close()
-    return [{"SayacID": r[0], "SayacAd": r[1], "SayacTipTuru": r[2], "TipAd": r[3], "SayacAmbari": r[4], "AmbarAd": r[5], "IslemTarihi": r[6], "LogHaritasi": r[7]} for r in veri]
+    
+    # Return içerisine "AboneNumarasi": r[8] eklendi
+    return [{"SayacID": r[0], "SayacAd": r[1], "SayacTipTuru": r[2], "TipAd": r[3], "SayacAmbari": r[4], "AmbarAd": r[5], "IslemTarihi": r[6], "LogHaritasi": r[7], "AboneNumarasi": r[8]} for r in veri]
 
 @app.post("/sayaclar")
 def sayac_ekle(sayac: SayacModel):

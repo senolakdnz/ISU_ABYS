@@ -49,8 +49,15 @@
 </div>
     <table>
         <thead>
-    <tr><th>Sayaç ID</th><th>Sayaç Adı</th><th>Tip Türü</th><th>Ambar</th><th>İşlem Tarihi</th><th>İşlemler</th></tr>
-</thead>
+            <tr>
+                <th>Sayaç ID</th>
+                <th>Sayaç Adı</th>
+                <th>Tip Türü</th>
+                <th>Ambar</th>
+                <th>Bağlı Abone</th> <!-- YENİ EKLENEN SÜTUN -->
+                <th>İşlem Tarihi</th>
+                <th>İşlemler</th>
+            </tr>
         </thead>
         <tbody id="sayacTablosu"></tbody>
     </table>
@@ -109,11 +116,10 @@
                 data.forEach(s => {
                     const formatliID = "SYC" + String(s.SayacID).padStart(7, '0');
                     
-                    // JSON olarak tuttuğumuz log hafızasını çözüyoruz
                     let loglar = [];
                     try { loglar = JSON.parse(s.LogHaritasi || '[]'); } catch(e) {}
 
-                    // 1. Önce sayacın GEÇMİŞ loglarını satır satır basıyoruz (İşlem butonları olmadan)
+                    // GEÇMİŞ İŞLEMLER (Loglar için "Bağlı Abone" sütununu boş '-' geçiyoruz ki tablo kaymasın)
                     if (loglar.length > 0) {
                         loglar.forEach(log => {
                             tablo.innerHTML += `<tr>
@@ -121,18 +127,23 @@
                                 <td>${s.SayacAd}</td>
                                 <td>${s.TipAd}</td>
                                 <td>${log.Ambar}</td>
+                                <td>-</td> <!-- Geçmiş loglar için bağlı abone boş -->
                                 <td>${log.Tarih}</td>
                                 <td><span style="color:gray; font-size:12px;">Geçmiş İşlem</span></td>
                             </tr>`;
                         });
                     }
 
-                    // 2. En son satır olarak sayacın GÜNCEL durumunu ve işlem butonlarını basıyoruz
+                    // Abone numarası mantığı: Eğer ambar 'Abone Ambarı' ise numarayı yaz, değilse '-' koy
+                    const bagliAboneGosterim = (s.AmbarAd === "Abone Ambarı" && s.AboneNumarasi) ? s.AboneNumarasi : "-";
+
+                    // GÜNCEL DURUM (Tablonun son satırı)
                     tablo.innerHTML += `<tr style="background-color: #f8f9fa;">
                         <td><strong>${formatliID}</strong></td>
                         <td>${s.SayacAd}</td>
                         <td>${s.TipAd}</td>
                         <td><strong>${s.AmbarAd || 'Belirtilmedi'}</strong></td>
+                        <td><strong>${bagliAboneGosterim}</strong></td> <!-- Abone Numarası Buraya Gelecek -->
                         <td><strong>${s.IslemTarihi || '-'}</strong></td>
                         <td>
                             <button class="btn-duzenle" onclick="guncelle(${s.SayacID}, '${s.SayacAd}', ${s.SayacTipTuru}, ${s.SayacAmbari}, '${s.IslemTarihi}')">Düzenle</button>
