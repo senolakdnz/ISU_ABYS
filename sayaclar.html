@@ -107,13 +107,33 @@
                 const tablo = document.getElementById("sayacTablosu");
                 tablo.innerHTML = "";
                 data.forEach(s => {
-                    const formatliID = formatSayacID(s.SayacID);
-                    tablo.innerHTML += `<tr>
+                    const formatliID = "SYC" + String(s.SayacID).padStart(7, '0');
+                    
+                    // JSON olarak tuttuğumuz log hafızasını çözüyoruz
+                    let loglar = [];
+                    try { loglar = JSON.parse(s.LogHaritasi || '[]'); } catch(e) {}
+
+                    // 1. Önce sayacın GEÇMİŞ loglarını satır satır basıyoruz (İşlem butonları olmadan)
+                    if (loglar.length > 0) {
+                        loglar.forEach(log => {
+                            tablo.innerHTML += `<tr>
+                                <td><strong>${formatliID}</strong></td>
+                                <td>${s.SayacAd}</td>
+                                <td>${s.TipAd}</td>
+                                <td>${log.Ambar}</td>
+                                <td>${log.Tarih}</td>
+                                <td><span style="color:gray; font-size:12px;">Geçmiş İşlem</span></td>
+                            </tr>`;
+                        });
+                    }
+
+                    // 2. En son satır olarak sayacın GÜNCEL durumunu ve işlem butonlarını basıyoruz
+                    tablo.innerHTML += `<tr style="background-color: #f8f9fa;">
                         <td><strong>${formatliID}</strong></td>
                         <td>${s.SayacAd}</td>
                         <td>${s.TipAd}</td>
-                        <td>${s.AmbarAd || 'Belirtilmedi'}</td>
-                        <td>${s.IslemTarihi || '-'}</td>
+                        <td><strong>${s.AmbarAd || 'Belirtilmedi'}</strong></td>
+                        <td><strong>${s.IslemTarihi || '-'}</strong></td>
                         <td>
                             <button class="btn-duzenle" onclick="guncelle(${s.SayacID}, '${s.SayacAd}', ${s.SayacTipTuru}, ${s.SayacAmbari}, '${s.IslemTarihi}')">Düzenle</button>
                             <button class="btn-sil" onclick="sil(${s.SayacID})">Sil</button>

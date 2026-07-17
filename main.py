@@ -224,28 +224,52 @@ def sayac_ekle(sayac: SayacModel):
 def sayaclari_getir():
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    # INNER JOIN ve LEFT JOIN ile Tip ve Ambar isimlerini çekiyoruz
     sorgu = """
-    SELECT s.SayacID, s.SayacAd, s.SayacTipTuru, t.TipAd, s.SayacAmbari, a.AmbarAd, s.IslemTarihi 
+    SELECT s.SayacID, s.SayacAd, s.SayacTipTuru, t.TipAd, s.SayacAmbari, a.AmbarAd, s.IslemTarihi, s.LogHaritasi 
     FROM Sayaclar s 
     INNER JOIN TipTur t ON s.SayacTipTuru = t.TipID 
     LEFT JOIN Ambarlar a ON s.SayacAmbari = a.AmbarID
     ORDER BY s.SayacID ASC
     """
-    
     cursor.execute(sorgu)
     veri = cursor.fetchall()
     conn.close()
+    return [{"SayacID": r[0], "SayacAd": r[1], "SayacTipTuru": r[2], "TipAd": r[3], "SayacAmbari": r[4], "AmbarAd": r[5], "IslemTarihi": r[6], "LogHaritasi": r[7]} for r in veri]
+
+@app.post("/sayaclar")
+def sayac_ekle(sayac: SayacModel):
+    conn = get_db_connection()
+    cursor = conn.cursor()
     
-    return [{"SayacID": r[0], "SayacAd": r[1], "SayacTipTuru": r[2], "TipAd": r[3], "SayacAmbari": r[4], "AmbarAd": r[5], "IslemTarihi": r[6]} for r in veri]
+    # İlk kayıt olduğu için geçmiş boş başlar '[]'
+    cursor.execute("INSERT INTO Sayaclar (SayacAd, SayacTipTuru, SayacAmbari, IslemTarihi, LogHaritasi) VALUES (%s, %s, %s, %s, %s)", 
+                   (sayac.SayacAd, sayac.SayacTipTuru, sayac.SayacAmbari, sayac.IslemTarihi, '[]'))
+    conn.commit()
+    conn.close()
+    return {"mesaj": "Sayaç eklendi."}
 
 @app.put("/sayaclar/{sayac_id}")
 def sayac_guncelle(sayac_id: int, sayac: SayacModel):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("UPDATE Sayaclar SET SayacAd = %s, SayacTipTuru = %s, SayacAmbari = %s, IslemTarihi = %s WHERE SayacID = %s", 
-                   (sayac.SayacAd, sayac.SayacTipTuru, sayac.SayacAmbari, sayac.IslemTarihi, sayac_id))
+
+    # 1. Sayacın eski durumunu ve mevcut log geçmişini çek
+    cursor.execute("SELECT s.SayacAmbari, a.AmbarAd, s.IslemTarihi, s.LogHaritasi FROM Sayaclar s LEFT JOIN Ambarlar a ON s.SayacAmbari = a.AmbarID WHERE s.SayacID = %s", (sayac_id,))
+    eski_veri = cursor.fetchone()
+    
+    eski_ambar_id = eski_veri[0]
+    eski_ambar_ad = eski_veri[1] or "Belirtilmedi"
+    eski_tarih = eski_veri[2]
+    mevcut_loglar = json.loads(eski_veri[3]) if eski_veri[3] else []
+
+    # 2. Eğer ambar veya tarih değişmişse, kaybolmaması için eski durumu geçmişe (loga) ekle
+    if eski_ambar_id != sayac.SayacAmbari or str(eski_tarih) != str(sayac.IslemTarihi):
+        mevcut_loglar.append({"Ambar": eski_ambar_ad, "Tarih": str(eski_tarih)})
+
+    # 3. Yeni değerleri ve uzayan log geçmişini tekrar sütuna kaydet
+    cursor.execute("UPDATE Sayaclar SET SayacAd = %s, SayacTipTuru = %s, SayacAmbari = %s, IslemTarihi = %s, LogHaritasi = %s WHERE SayacID = %s", 
+                   (sayac.SayacAd, sayac.SayacTipTuru, sayac.SayacAmbari, sayac.IslemTarihi, json.dumps(mevcut_loglar), sayac_id))
+    
     conn.commit()
     conn.close()
     return {"mesaj": "Sayaç güncellendi."}
@@ -355,37 +379,35 @@ class AboneModel(BaseModel):
 # 2. Abone Ekle
 @app.post("/aboneler")
 def abone_ekle(abone: AboneModel):
+    from datetime import date
     conn = get_db_connection()
     cursor = conn.cursor()
-
-    # 1. "Abone Ambarı" ID'sini bul
-    cursor.execute("SELECT AmbarID FROM Ambarlar WHERE AmbarAd = 'Abone Ambarı'")
-    abone_ambar_row = cursor.fetchone()
-    # Eğer yanlışlıkla silindiyse tekrar oluştur
-    if not abone_ambar_row:
-        cursor.execute("INSERT INTO Ambarlar (AmbarAd) VALUES ('Abone Ambarı') RETURNING AmbarID")
-        abone_ambar_id = cursor.fetchone()[0]
-    else:
-        abone_ambar_id = abone_ambar_row[0]
-
-    # 2. Seçilen sayacın şu anki ambarını al ve 'EskiAmbari' olarak kaydet, sayacı Abone Ambarı'na al
-    cursor.execute("SELECT SayacAmbari FROM Sayaclar WHERE SayacID = %s", (abone.SayacID,))
-    eski_ambar_id = cursor.fetchone()[0]
     
-    cursor.execute("UPDATE Sayaclar SET SayacAmbari = %s, EskiAmbari = %s WHERE SayacID = %s",
-                   (abone_ambar_id, eski_ambar_id, abone.SayacID))
-
-    # 3. Aboneyi ekle
-    sorgu = """
-    INSERT INTO Abone (Ad, Soyad, Ilce, Sube, AboneTuru, TarifeTuru, SayacID) 
-    VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING AboneNumarasi
-    """
+    # Abone ambarı ID'sini bul
+    cursor.execute("SELECT AmbarID FROM Ambarlar WHERE AmbarAd = 'Abone Ambarı'")
+    abone_ambar_id = cursor.fetchone()[0]
+    
+    # Seçilen sayacın eski verilerini çek
+    cursor.execute("SELECT s.SayacAmbari, a.AmbarAd, s.IslemTarihi, s.LogHaritasi FROM Sayaclar s LEFT JOIN Ambarlar a ON s.SayacAmbari = a.AmbarID WHERE s.SayacID = %s", (abone.SayacID,))
+    eski_veri = cursor.fetchone()
+    
+    eski_ambar_id = eski_veri[0]
+    mevcut_loglar = json.loads(eski_veri[3]) if eski_veri[3] else []
+    
+    # Sayacın son durumunu loga ekle
+    mevcut_loglar.append({"Ambar": eski_veri[1], "Tarih": str(eski_veri[2])})
+    
+    # Sayacın güncel durumunu Abone Ambarı yap, tarihini bugün yap ve log haritasını kaydet
+    cursor.execute("UPDATE Sayaclar SET SayacAmbari = %s, EskiAmbari = %s, IslemTarihi = %s, LogHaritasi = %s WHERE SayacID = %s", 
+                   (abone_ambar_id, eski_ambar_id, date.today(), json.dumps(mevcut_loglar), abone.SayacID))
+    
+    # Aboneyi kaydet
+    sorgu = "INSERT INTO Abone (Ad, Soyad, Ilce, Sube, AboneTuru, TarifeTuru, SayacID) VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING AboneNumarasi"
     cursor.execute(sorgu, (abone.Ad, abone.Soyad, abone.Ilce, abone.Sube, abone.AboneTuru, abone.TarifeTuru, abone.SayacID))
-    yeni_abone_no = cursor.fetchone()[0]
     
     conn.commit()
     conn.close()
-    return {"mesaj": "Abone eklendi ve sayaç Abone Ambarı'na taşındı.", "AboneNumarasi": yeni_abone_no}
+    return {"mesaj": "Abone eklendi ve sayaç transfer edildi."}
 
 # 3. Abone Listele (Sorgu ve Return Tam İstediğin Sırada)
 @app.get("/aboneler")
