@@ -452,33 +452,44 @@ def aboneleri_getir():
 # 4. Abone Güncelle
 @app.put("/aboneler/{abone_numarasi}")
 def abone_guncelle(abone_numarasi: str, abone: AboneModel):
+    from datetime import date
+    import json
     conn = get_db_connection()
     cursor = conn.cursor()
-
+    
     cursor.execute("SELECT AmbarID FROM Ambarlar WHERE AmbarAd = 'Abone Ambarı'")
     abone_ambar_id = cursor.fetchone()[0]
 
-    # Mevcut sayacı bul
     cursor.execute("SELECT SayacID FROM Abone WHERE AboneNumarasi = %s", (abone_numarasi,))
     eski_sayac_id = cursor.fetchone()[0]
 
-    # Eğer sayaç değiştirilmişse: Eski sayacı iade et, yeni sayacı Abone Ambarına al
     if eski_sayac_id != abone.SayacID:
-        # Eski sayacı önceki ambarına iade et
-        cursor.execute("UPDATE Sayaclar SET SayacAmbari = EskiAmbari, EskiAmbari = NULL WHERE SayacID = %s", (eski_sayac_id,))
+        # 1. ESKİ SAYACI İADE ET VE LOGLA (Abone Ambarındaki zamanı geçmişe ekle)
+        cursor.execute("SELECT s.SayacAmbari, a.AmbarAd, s.IslemTarihi, s.LogHaritasi, s.EskiAmbari FROM Sayaclar s LEFT JOIN Ambarlar a ON s.SayacAmbari = a.AmbarID WHERE s.SayacID = %s", (eski_sayac_id,))
+        eski_veri = cursor.fetchone()
+        
+        if eski_veri:
+            mevcut_loglar_eski = json.loads(eski_veri[3]) if eski_veri[3] else []
+            # Abone Ambarındaki süreci loga ekliyoruz
+            mevcut_loglar_eski.append({"Ambar": eski_veri[1], "Tarih": str(eski_veri[2])})
+            iade_ambar_id = eski_veri[4]
+            
+            cursor.execute("UPDATE Sayaclar SET SayacAmbari = %s, EskiAmbari = NULL, IslemTarihi = %s, LogHaritasi = %s WHERE SayacID = %s", 
+                           (iade_ambar_id, date.today(), json.dumps(mevcut_loglar_eski), eski_sayac_id))
 
-        # Yeni sayacın şu anki ambarını al ve Abone Ambarı'na taşı
-        cursor.execute("SELECT SayacAmbari FROM Sayaclar WHERE SayacID = %s", (abone.SayacID,))
-        yeni_sayacin_eski_ambari = cursor.fetchone()[0]
+        # 2. YENİ SAYACI ABONE AMBARINA AL VE LOGLA (Şube Ambarındaki zamanı geçmişe ekle)
+        cursor.execute("SELECT s.SayacAmbari, a.AmbarAd, s.IslemTarihi, s.LogHaritasi FROM Sayaclar s LEFT JOIN Ambarlar a ON s.SayacAmbari = a.AmbarID WHERE s.SayacID = %s", (abone.SayacID,))
+        yeni_veri = cursor.fetchone()
+        
+        if yeni_veri:
+            yeni_sayacin_eski_ambar_id = yeni_veri[0]
+            mevcut_loglar_yeni = json.loads(yeni_veri[3]) if yeni_veri[3] else []
+            mevcut_loglar_yeni.append({"Ambar": yeni_veri[1], "Tarih": str(yeni_veri[2])})
+            
+            cursor.execute("UPDATE Sayaclar SET SayacAmbari = %s, EskiAmbari = %s, IslemTarihi = %s, LogHaritasi = %s WHERE SayacID = %s", 
+                           (abone_ambar_id, yeni_sayacin_eski_ambar_id, date.today(), json.dumps(mevcut_loglar_yeni), abone.SayacID))
 
-        cursor.execute("UPDATE Sayaclar SET SayacAmbari = %s, EskiAmbari = %s WHERE SayacID = %s",
-                       (abone_ambar_id, yeni_sayacin_eski_ambari, abone.SayacID))
-
-    sorgu = """
-    UPDATE Abone SET 
-        Ad = %s, Soyad = %s, Ilce = %s, Sube = %s, AboneTuru = %s, TarifeTuru = %s, SayacID = %s 
-    WHERE AboneNumarasi = %s
-    """
+    sorgu = "UPDATE Abone SET Ad = %s, Soyad = %s, Ilce = %s, Sube = %s, AboneTuru = %s, TarifeTuru = %s, SayacID = %s WHERE AboneNumarasi = %s"
     cursor.execute(sorgu, (abone.Ad, abone.Soyad, abone.Ilce, abone.Sube, abone.AboneTuru, abone.TarifeTuru, abone.SayacID, abone_numarasi))
     conn.commit()
     conn.close()
@@ -487,20 +498,38 @@ def abone_guncelle(abone_numarasi: str, abone: AboneModel):
 # 5. Abone Sil
 @app.delete("/aboneler/{abone_numarasi}")
 def abone_sil(abone_numarasi: str):
+    from datetime import date
+    import json
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Abone silinirken üzerindeki sayacı bul ve eski ambarına iade et
     cursor.execute("SELECT SayacID FROM Abone WHERE AboneNumarasi = %s", (abone_numarasi,))
     sayac_row = cursor.fetchone()
+    
     if sayac_row:
         eski_sayac_id = sayac_row[0]
-        cursor.execute("UPDATE Sayaclar SET SayacAmbari = EskiAmbari, EskiAmbari = NULL WHERE SayacID = %s", (eski_sayac_id,))
-
+        
+        # Abone silinirken üzerindeki sayacın "Abone Ambarı" kaydını loglara işle ve iade et
+        cursor.execute("SELECT s.SayacAmbari, a.AmbarAd, s.IslemTarihi, s.LogHaritasi, s.EskiAmbari FROM Sayaclar s LEFT JOIN Ambarlar a ON s.SayacAmbari = a.AmbarID WHERE s.SayacID = %s", (eski_sayac_id,))
+        veri = cursor.fetchone()
+        
+        if veri:
+            ambar_ad = veri[1] or "Belirtilmedi"
+            eski_tarih = veri[2]
+            mevcut_loglar = json.loads(veri[3]) if veri[3] else []
+            iade_ambar_id = veri[4] # Şube Ambarı ID'si
+            
+            # Sayacın Abone Ambarında bulunduğu evreyi log hafızasına ekle
+            mevcut_loglar.append({"Ambar": ambar_ad, "Tarih": str(eski_tarih)})
+            
+            # Sayacı eski ambarına (Şubeye) iade et, tarihi güncelle ve yeni logu kaydet
+            cursor.execute("UPDATE Sayaclar SET SayacAmbari = %s, EskiAmbari = NULL, IslemTarihi = %s, LogHaritasi = %s WHERE SayacID = %s", 
+                           (iade_ambar_id, date.today(), json.dumps(mevcut_loglar), eski_sayac_id))
+    
     cursor.execute("DELETE FROM Abone WHERE AboneNumarasi = %s", (abone_numarasi,))
     conn.commit()
     conn.close()
-    return {"mesaj": "Abone silindi ve sayaç depoya iade edildi."}
+    return {"mesaj": "Abone silindi ve sayaç iade edildi."}
 
 # Sözleşme Veri Modeli
 class SozlesmeModel(BaseModel):
