@@ -357,15 +357,35 @@ class AboneModel(BaseModel):
 def abone_ekle(abone: AboneModel):
     conn = get_db_connection()
     cursor = conn.cursor()
+
+    # 1. "Abone Ambarı" ID'sini bul
+    cursor.execute("SELECT AmbarID FROM Ambarlar WHERE AmbarAd = 'Abone Ambarı'")
+    abone_ambar_row = cursor.fetchone()
+    # Eğer yanlışlıkla silindiyse tekrar oluştur
+    if not abone_ambar_row:
+        cursor.execute("INSERT INTO Ambarlar (AmbarAd) VALUES ('Abone Ambarı') RETURNING AmbarID")
+        abone_ambar_id = cursor.fetchone()[0]
+    else:
+        abone_ambar_id = abone_ambar_row[0]
+
+    # 2. Seçilen sayacın şu anki ambarını al ve 'EskiAmbari' olarak kaydet, sayacı Abone Ambarı'na al
+    cursor.execute("SELECT SayacAmbari FROM Sayaclar WHERE SayacID = %s", (abone.SayacID,))
+    eski_ambar_id = cursor.fetchone()[0]
+    
+    cursor.execute("UPDATE Sayaclar SET SayacAmbari = %s, EskiAmbari = %s WHERE SayacID = %s",
+                   (abone_ambar_id, eski_ambar_id, abone.SayacID))
+
+    # 3. Aboneyi ekle
     sorgu = """
     INSERT INTO Abone (Ad, Soyad, Ilce, Sube, AboneTuru, TarifeTuru, SayacID) 
     VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING AboneNumarasi
     """
     cursor.execute(sorgu, (abone.Ad, abone.Soyad, abone.Ilce, abone.Sube, abone.AboneTuru, abone.TarifeTuru, abone.SayacID))
     yeni_abone_no = cursor.fetchone()[0]
+    
     conn.commit()
     conn.close()
-    return {"mesaj": "Abone eklendi.", "AboneNumarasi": yeni_abone_no}
+    return {"mesaj": "Abone eklendi ve sayaç Abone Ambarı'na taşındı.", "AboneNumarasi": yeni_abone_no}
 
 # 3. Abone Listele (Sorgu ve Return Tam İstediğin Sırada)
 @app.get("/aboneler")
@@ -412,6 +432,26 @@ def aboneleri_getir():
 def abone_guncelle(abone_numarasi: str, abone: AboneModel):
     conn = get_db_connection()
     cursor = conn.cursor()
+
+    cursor.execute("SELECT AmbarID FROM Ambarlar WHERE AmbarAd = 'Abone Ambarı'")
+    abone_ambar_id = cursor.fetchone()[0]
+
+    # Mevcut sayacı bul
+    cursor.execute("SELECT SayacID FROM Abone WHERE AboneNumarasi = %s", (abone_numarasi,))
+    eski_sayac_id = cursor.fetchone()[0]
+
+    # Eğer sayaç değiştirilmişse: Eski sayacı iade et, yeni sayacı Abone Ambarına al
+    if eski_sayac_id != abone.SayacID:
+        # Eski sayacı önceki ambarına iade et
+        cursor.execute("UPDATE Sayaclar SET SayacAmbari = EskiAmbari, EskiAmbari = NULL WHERE SayacID = %s", (eski_sayac_id,))
+
+        # Yeni sayacın şu anki ambarını al ve Abone Ambarı'na taşı
+        cursor.execute("SELECT SayacAmbari FROM Sayaclar WHERE SayacID = %s", (abone.SayacID,))
+        yeni_sayacin_eski_ambari = cursor.fetchone()[0]
+
+        cursor.execute("UPDATE Sayaclar SET SayacAmbari = %s, EskiAmbari = %s WHERE SayacID = %s",
+                       (abone_ambar_id, yeni_sayacin_eski_ambari, abone.SayacID))
+
     sorgu = """
     UPDATE Abone SET 
         Ad = %s, Soyad = %s, Ilce = %s, Sube = %s, AboneTuru = %s, TarifeTuru = %s, SayacID = %s 
@@ -427,10 +467,18 @@ def abone_guncelle(abone_numarasi: str, abone: AboneModel):
 def abone_sil(abone_numarasi: str):
     conn = get_db_connection()
     cursor = conn.cursor()
+    
+    # Abone silinirken üzerindeki sayacı bul ve eski ambarına iade et
+    cursor.execute("SELECT SayacID FROM Abone WHERE AboneNumarasi = %s", (abone_numarasi,))
+    sayac_row = cursor.fetchone()
+    if sayac_row:
+        eski_sayac_id = sayac_row[0]
+        cursor.execute("UPDATE Sayaclar SET SayacAmbari = EskiAmbari, EskiAmbari = NULL WHERE SayacID = %s", (eski_sayac_id,))
+
     cursor.execute("DELETE FROM Abone WHERE AboneNumarasi = %s", (abone_numarasi,))
     conn.commit()
     conn.close()
-    return {"mesaj": "Abone silindi."}
+    return {"mesaj": "Abone silindi ve sayaç depoya iade edildi."}
 
 # Sözleşme Veri Modeli
 class SozlesmeModel(BaseModel):

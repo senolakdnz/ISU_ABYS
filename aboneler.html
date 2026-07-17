@@ -135,8 +135,8 @@ window.onload = function() {
             .then(data => {
                 const tablo = document.getElementById("aboneTablosu");
                 tablo.innerHTML = "";
-                data.forEach(a => {
-    // SayacID'yi SYC0000001 formatına dönüştürüyoruz
+                // Tabloya basarken guncelle fonksiyonuna a.SayacAd parametresini de gönderiyoruz ki mevcut sayaç ismini bilelim
+data.forEach(a => {
     const formatliSayacID = a.SayacID ? ("SYC" + String(a.SayacID).padStart(7, '0')) : "-";
 
     tablo.innerHTML += `<tr>
@@ -146,9 +146,9 @@ window.onload = function() {
         <td>${a.SubeAd}</td>
         <td>${a.AboneTuruAd}</td>
         <td>${a.TarifeAd}</td>
-        <td><strong>${formatliSayacID}</strong></td> <!-- Sayac Adı Yerine Sadece Formatlı ID -->
+        <td><strong>${formatliSayacID}</strong></td>
         <td>
-            <button class="btn-duzenle" onclick="guncelle('${a.AboneNumarasi}', '${a.Ad}', '${a.Soyad}', ${a.IlceID}, ${a.SubeID}, ${a.AboneTuruID}, ${a.TarifeID}, ${a.SayacID})">Düzenle</button>
+            <button class="btn-duzenle" onclick="guncelle('${a.AboneNumarasi}', '${a.Ad}', '${a.Soyad}', ${a.IlceID}, ${a.SubeID}, ${a.AboneTuruID}, ${a.TarifeID}, ${a.SayacID}, '${a.SayacAd}')">Düzenle</button>
             <button class="btn-sil" onclick="sil('${a.AboneNumarasi}')">Sil</button>
         </td></tr>`;
 });
@@ -188,19 +188,29 @@ window.onload = function() {
         }
     }
 
-    function guncelle(aboneNo, ad, soyad, ilce, sube, aboneTuru, tarife, sayac) {
-        document.getElementById("aboneNoGuncelleme").value = aboneNo;
-        document.getElementById("aboneAd").value = ad;
-        document.getElementById("aboneSoyad").value = soyad;
-        document.getElementById("aboneIlce").value = ilce;
-        document.getElementById("aboneSube").value = sube;
-        document.getElementById("aboneTuru").value = aboneTuru;
-        document.getElementById("aboneTarife").value = tarife;
-        document.getElementById("aboneSayac").value = sayac;
-        
-        document.getElementById("btnKaydet").innerText = "Abone Güncelle";
-        document.getElementById("btnIptal").style.display = "inline-block";
+    // Fonksiyona 'sayacAd' parametresini ekledik
+function guncelle(aboneNo, ad, soyad, ilce, sube, aboneTuru, tarife, sayac, sayacAd) {
+    document.getElementById("aboneNoGuncelleme").value = aboneNo;
+    document.getElementById("aboneAd").value = ad;
+    document.getElementById("aboneSoyad").value = soyad;
+    document.getElementById("aboneIlce").value = ilce;
+    document.getElementById("aboneSube").value = sube;
+    document.getElementById("aboneTuru").value = aboneTuru;
+    document.getElementById("aboneTarife").value = tarife;
+    
+    const sayacSelect = document.getElementById("aboneSayac");
+    
+    // Eğer abonenin üzerindeki sayaç "Abone Ambarı"na geçtiği için gizlenmişse, listeye sadece bu abone için geçici olarak ekle
+    if (![...sayacSelect.options].some(opt => opt.value == sayac)) {
+        const formatliID = "SYC" + String(sayac).padStart(7, '0');
+        sayacSelect.innerHTML += `<option value="${sayac}">${formatliID} - ${sayacAd} (Mevcut Sayaç)</option>`;
     }
+    
+    document.getElementById("aboneSayac").value = sayac;
+    
+    document.getElementById("btnKaydet").innerText = "Abone Güncelle";
+    document.getElementById("btnIptal").style.display = "inline-block";
+}
 
     function formuTemizle() {
         document.getElementById("aboneNoGuncelleme").value = "";
@@ -240,11 +250,11 @@ function sayacFiltreliGetir() {
         .then(res => res.json())
         .then(data => {
             const secimKutusu = document.getElementById('aboneSayac');
-            secimKutusu.innerHTML = '<option value="">-- Seçiniz --</option>'; // Temizle
+            secimKutusu.innerHTML = '<option value="">-- Seçiniz --</option>'; 
             
             data.forEach(item => {
-                // SADECE AmbarAd = 'İlçe Ambarı' olanları listeye ekler
-                if (item.AmbarAd === "İlçe Ambarı") {
+                // Görselindeki gibi içinde sadece "Şube Ambarı" geçen sayaçları listele
+                if (item.AmbarAd && item.AmbarAd.includes("Şube Ambarı")) {
                     const formatliID = "SYC" + String(item.SayacID).padStart(7, '0');
                     secimKutusu.innerHTML += `<option value="${item.SayacID}">${formatliID} - ${item.SayacAd}</option>`;
                 }
