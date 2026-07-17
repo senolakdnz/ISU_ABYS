@@ -59,107 +59,139 @@
 <script>
     const API_URL = "https://isu-abys.onrender.com";
 
-    // Sayfa açıldığında hem sayaçları hem de tipleri listele
+    // Sayfa açıldığında tabloları ve açılır listeleri (combobox) doldur
     window.onload = function() { 
-    sayaclariGetir(); 
-    tipSecenekleriniGetir();
-    ambarSecenekleriniGetir();
-};
+        sayaclariGetir(); 
+        tipSecenekleriniGetir();
+        ambarSecenekleriniGetir();
+    };
 
-function ambarSecenekleriniGetir() {
-    fetch('/ambarlar').then(res => res.json()).then(data => {
-        const secimKutusu = document.getElementById("sayacAmbari");
-        data.forEach(ambar => {
-            secimKutusu.innerHTML += `<option value="${ambar.AmbarID}">${ambar.AmbarAd}</option>`;
+    // 1. TİP TÜRLERİNİ GETİR
+    function tipSecenekleriniGetir() {
+        fetch('/tipturler')
+            .then(res => res.json())
+            .then(data => {
+                const secimKutusu = document.getElementById("sayacTipTuru");
+                secimKutusu.innerHTML = '<option value="">-- Tip Türü Seçiniz --</option>'; // Önce temizle
+                data.forEach(tip => {
+                    secimKutusu.innerHTML += `<option value="${tip.TipID}">${tip.TipAd}</option>`;
+                });
+            })
+            .catch(err => console.error("Tip Türü çekme hatası:", err));
+    }
+
+    // 2. AMBARLARI GETİR
+    function ambarSecenekleriniGetir() {
+        fetch('/ambarlar')
+            .then(res => res.json())
+            .then(data => {
+                const secimKutusu = document.getElementById("sayacAmbari");
+                secimKutusu.innerHTML = '<option value="">-- Ambar Seçiniz --</option>'; // Önce temizle
+                data.forEach(ambar => {
+                    secimKutusu.innerHTML += `<option value="${ambar.AmbarID}">${ambar.AmbarAd}</option>`;
+                });
+            })
+            .catch(err => console.error("Ambar çekme hatası:", err));
+    }
+
+    // Sayaç ID'sini formatlayan yardımcı fonksiyon (SYC0000001)
+    function formatSayacID(id) {
+        return "SYC" + String(id).padStart(7, '0');
+    }
+
+    // 3. SAYAÇLARI TABLOYA GETİR
+    function sayaclariGetir() {
+        fetch('/sayaclar')
+            .then(res => res.json())
+            .then(data => {
+                const tablo = document.getElementById("sayacTablosu");
+                tablo.innerHTML = "";
+                data.forEach(s => {
+                    const formatliID = formatSayacID(s.SayacID);
+                    tablo.innerHTML += `<tr>
+                        <td><strong>${formatliID}</strong></td>
+                        <td>${s.SayacAd}</td>
+                        <td>${s.TipAd}</td>
+                        <td>${s.AmbarAd || 'Belirtilmedi'}</td>
+                        <td>${s.IslemTarihi || '-'}</td>
+                        <td>
+                            <button class="btn-duzenle" onclick="guncelle(${s.SayacID}, '${s.SayacAd}', ${s.SayacTipTuru}, ${s.SayacAmbari}, '${s.IslemTarihi}')">Düzenle</button>
+                            <button class="btn-sil" onclick="sil(${s.SayacID})">Sil</button>
+                        </td></tr>`;
+                });
+            });
+    }
+
+    // 4. SAYAÇ KAYDET VEYA GÜNCELLE
+    function sayacKaydet() {
+        const id = document.getElementById("sayacId").value;
+        const ad = document.getElementById("sayacAd").value;
+        const tip = parseInt(document.getElementById("sayacTipTuru").value);
+        const ambar = parseInt(document.getElementById("sayacAmbari").value);
+        const tarih = document.getElementById("islemTarihi").value;
+
+        if (!ad || isNaN(tip) || isNaN(ambar) || !tarih) {
+            return alert("Lütfen tüm alanları doldurun ve listelerden seçim yapın!");
+        }
+
+        fetch(id ? `/sayaclar/${id}` : '/sayaclar', {
+            method: id ? "PUT" : "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ SayacAd: ad, SayacTipTuru: tip, SayacAmbari: ambar, IslemTarihi: tarih })
+        }).then(() => { 
+            formuTemizle(); 
+            sayaclariGetir(); 
         });
-    });
-}
+    }
 
-function formatSayacID(id) {
-    // 1 sayısını alıp SYC0000001 yapar
-    return "SYC" + String(id).padStart(7, '0');
-}
-
-function sayaclariGetir() {
-    fetch('/sayaclar').then(res => res.json()).then(data => {
-        const tablo = document.getElementById("sayacTablosu");
-        tablo.innerHTML = "";
-        data.forEach(s => {
-            const formatliID = formatSayacID(s.SayacID); // Formatlanmış ID
-            tablo.innerHTML += `<tr>
-                <td><strong>${formatliID}</strong></td>
-                <td>${s.SayacAd}</td>
-                <td>${s.TipAd}</td>
-                <td>${s.AmbarAd || 'Belirtilmedi'}</td>
-                <td>${s.IslemTarihi || '-'}</td>
-                <td>
-                    <button class="btn-duzenle" onclick="guncelle(${s.SayacID}, '${s.SayacAd}', ${s.SayacTipTuru}, ${s.SayacAmbari}, '${s.IslemTarihi}')">Düzenle</button>
-                    <button class="btn-sil" onclick="sil(${s.SayacID})">Sil</button>
-                </td></tr>`;
-        });
-    });
-}
-
-function sayacKaydet() {
-    const id = document.getElementById("sayacId").value;
-    const ad = document.getElementById("sayacAd").value;
-    const tip = parseInt(document.getElementById("sayacTipTuru").value);
-    const ambar = parseInt(document.getElementById("sayacAmbari").value);
-    const tarih = document.getElementById("islemTarihi").value;
-
-    if (!ad || isNaN(tip) || isNaN(ambar) || !tarih) return alert("Lütfen tüm alanları doldurun!");
-
-    fetch(id ? `/sayaclar/${id}` : '/sayaclar', {
-        method: id ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ SayacAd: ad, SayacTipTuru: tip, SayacAmbari: ambar, IslemTarihi: tarih })
-    }).then(() => { formuTemizle(); sayaclariGetir(); });
-}
-
+    // 5. SİL
     function sil(id) {
-        if (confirm("Emin misiniz?")) {
-            fetch(`${API_URL}/sayaclar/${id}`, { method: "DELETE" }).then(() => sayaclariGetir());
+        if (confirm("Bu sayacı silmek istediğinize emin misiniz?")) {
+            fetch(`/sayaclar/${id}`, { method: "DELETE" }).then(() => sayaclariGetir());
         }
     }
 
+    // 6. GÜNCELLEME MODUNA GEÇ
     function guncelle(id, ad, tip, ambar, tarih) {
-    document.getElementById("sayacId").value = id;
-    document.getElementById("sayacAd").value = ad;
-    document.getElementById("sayacTipTuru").value = tip;
-    document.getElementById("sayacAmbari").value = ambar;
-    document.getElementById("islemTarihi").value = tarih;
-    document.getElementById("btnKaydet").innerText = "Güncelle";
-    document.getElementById("btnIptal").style.display = "inline-block";
-}
-
-function formuTemizle() {
-    document.getElementById("sayacId").value = "";
-    document.getElementById("sayacAd").value = "";
-    document.getElementById("sayacTipTuru").value = "";
-    document.getElementById("sayacAmbari").value = "";
-    document.getElementById("islemTarihi").value = "";
-    document.getElementById("btnKaydet").innerText = "Kaydet";
-    document.getElementById("btnIptal").style.display = "none";
-}
-
-    function tabloyuFiltrele() {
-    let input = document.getElementById("aramaCubugu");
-    let filter = input.value.toUpperCase();
-    let table = document.querySelector("table");
-    let tr = table.getElementsByTagName("tr");
-
-    for (let i = 1; i < tr.length; i++) { // 0. satır başlık olduğu için 1'den başlar
-        let visible = false;
-        let td = tr[i].getElementsByTagName("td");
-        for (let j = 0; j < td.length - 1; j++) { // "İşlemler" sütununu arama (son sütun)
-            if (td[j] && td[j].innerText.toUpperCase().indexOf(filter) > -1) {
-                visible = true;
-                break;
-            }
-        }
-        tr[i].style.display = visible ? "" : "none";
+        document.getElementById("sayacId").value = id;
+        document.getElementById("sayacAd").value = ad;
+        document.getElementById("sayacTipTuru").value = tip;
+        document.getElementById("sayacAmbari").value = ambar;
+        document.getElementById("islemTarihi").value = tarih;
+        document.getElementById("btnKaydet").innerText = "Güncelle";
+        document.getElementById("btnIptal").style.display = "inline-block";
     }
-}
+
+    // 7. FORMU TEMİZLE
+    function formuTemizle() {
+        document.getElementById("sayacId").value = "";
+        document.getElementById("sayacAd").value = "";
+        document.getElementById("sayacTipTuru").value = "";
+        document.getElementById("sayacAmbari").value = "";
+        document.getElementById("islemTarihi").value = "";
+        document.getElementById("btnKaydet").innerText = "Kaydet";
+        document.getElementById("btnIptal").style.display = "none";
+    }
+
+    // 8. TABLODA ARAMA/FİLTRELEME
+    function tabloyuFiltrele() {
+        let input = document.getElementById("aramaCubugu");
+        let filter = input.value.toUpperCase();
+        let table = document.querySelector("table");
+        let tr = table.getElementsByTagName("tr");
+
+        for (let i = 1; i < tr.length; i++) {
+            let visible = false;
+            let td = tr[i].getElementsByTagName("td");
+            for (let j = 0; j < td.length - 1; j++) {
+                if (td[j] && td[j].innerText.toUpperCase().indexOf(filter) > -1) {
+                    visible = true;
+                    break;
+                }
+            }
+            tr[i].style.display = visible ? "" : "none";
+        }
+    }
 </script>
 </body>
 </html>
